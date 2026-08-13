@@ -1,0 +1,30 @@
+{
+  "name": "cook-maid-booking",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cook & Home Maid Booking Platform — monorepo",
+  "workspaces": [
+    "frontend",
+    "admin",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n frontend,admin,backend -c blue,magenta,green \"npm run dev -w frontend\" \"npm run dev -w admin\" \"npm run dev -w backend\"",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:admin": "npm run dev -w admin",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build -w frontend && npm run build -w admin && npm run build -w backend",
+    "build:frontend": "npm run build -w frontend",
+    "build:admin": "npm run build -w admin",
+    "build:backend": "npm run build -w backend",
+    "lint": "npm run lint -w frontend && npm run lint -w admin && npm run lint -w backend",
+    "typecheck": "npm run typecheck -w frontend && npm run typecheck -w admin && npm run typecheck -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

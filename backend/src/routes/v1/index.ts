@@ -1,0 +1,75 @@
+import { Router } from 'express';
+import authRoutes from '../../modules/auth/routes/auth.routes.js';
+import customerRoutes from '../../modules/customer/routes/customer.routes.js';
+import adminDashboardRoutes from '../../modules/adminDashboard/routes/adminDashboard.routes.js';
+import userRoutes from './user.routes.js';
+import addressRoutes from './address.routes.js';
+import cookRoutes from './cook.routes.js';
+import maidRoutes from './maid.routes.js';
+import bookingRoutes from '../../modules/booking/routes/booking.routes.js';
+import providerRoutes from '../../modules/providers/routes/provider.routes.js';
+import providerDashboardRoutes from '../../modules/providerDashboard/routes/providerDashboard.routes.js';
+import paymentRoutes from '../../modules/payments/routes/payment.routes.js';
+import notificationRoutes from '../../modules/notifications/routes/notification.routes.js';
+import activityLogRoutes from '../../modules/activityLogs/routes/activityLog.routes.js';
+import locationRoutes from '../../modules/location/routes/location.routes.js';
+import chatRoutes from '../../modules/chat/routes/chat.routes.js';
+import saasRoutes from '../../modules/saas/routes/saas.routes.js';
+import couponRoutes from './coupon.routes.js';
+import referralRoutes from '../../modules/referrals/routes/referral.routes.js';
+import walletRoutes from './wallet.routes.js';
+import settingRoutes from './setting.routes.js';
+import reportsRoutes from './reports.routes.js';
+import reviewRoutes from './review.routes.js';
+import documentRoutes from './document.routes.js';
+import serviceCatalogRoutes from './serviceCatalog.routes.js';
+import favoriteRoutes from './favorite.routes.js';
+import aiEngineRoutes from './aiEngine.routes.js';
+import cmsRoutes from '../../modules/cms/routes/cms.routes.js';
+import mediaRoutes from '../../modules/media/routes/media.routes.js';
+import { healthController } from '../../controllers/health.controller.js';
+import safetyRoutes from './safety.routes.js';
+import searchRoutes from './search.routes.js';
+
+const router = Router();
+
+router.get('/health', healthController.check);
+router.get('/health/liveness', healthController.liveness);
+router.get('/health/readiness', healthController.readiness);
+
+router.use('/auth', authRoutes);
+router.use('/admin', adminDashboardRoutes);
+router.use('/customer', customerRoutes);
+router.use('/customers', customerRoutes);
+router.use('/users', userRoutes);
+router.use('/addresses', addressRoutes);
+router.use('/providers', providerRoutes);
+router.use('/provider', providerDashboardRoutes);
+router.use('/cooks', cookRoutes);
+router.use('/maids', maidRoutes);
+router.use('/bookings', bookingRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/activity-logs', activityLogRoutes);
+router.use('/chat', chatRoutes);
+router.use('/saas', saasRoutes);
+router.use('/coupons', couponRoutes);
+router.use('/referrals', referralRoutes);
+router.use('/wallets', walletRoutes);
+router.use('/settings', settingRoutes);
+router.use('/reports', reportsRoutes);
+router.use('/reviews', reviewRoutes);
+router.use('/documents', documentRoutes);
+router.use('/catalog', serviceCatalogRoutes);
+router.use('/favorites', favoriteRoutes);
+router.use('/ai', aiEngineRoutes);
+router.use('/cms', cmsRoutes);
+router.use('/media', mediaRoutes);
+router.use('/safety', safetyRoutes);
+router.use('/search', searchRoutes);
+
+// Location Module Routes (supports both /locations/cities and direct /cities, /states, /countries)
+router.use('/locations', locationRoutes);
+router.use('/', locationRoutes);
+
+export default router;
