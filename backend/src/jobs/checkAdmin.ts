@@ -1,7 +1,9 @@
 // Quick admin check script — reads admin users from local MongoDB
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const MONGODB_URI = 'mongodb://127.0.0.1:27017/maid_cook_db';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/maid_cook_db';
 
 void (async () => {
   const UserSchema = new mongoose.Schema({}, { strict: false });

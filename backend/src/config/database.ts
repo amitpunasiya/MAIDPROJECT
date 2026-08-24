@@ -39,8 +39,29 @@ export const connectDatabase = async (): Promise<void> => {
   try {
     await mongoose.connect(env.MONGODB_URI, connectionOptions);
   } catch (error: unknown) {
-    logger.error('Failed to connect to MongoDB', {
-      error: error instanceof Error ? error.message : String(error),
+    const errMessage = error instanceof Error ? error.message : String(error);
+    logger.warn(`Failed to connect to primary MONGODB_URI (${env.MONGODB_URI}): ${errMessage}`);
+
+    if (env.NODE_ENV === 'development') {
+      try {
+        logger.info('Attempting auto-fallback using in-memory MongoDB for local development...');
+        const { MongoMemoryServer } = await import('mongodb-memory-server');
+        const mongoServer = await MongoMemoryServer.create({
+          instance: { dbName: 'maid_cook_db' }
+        });
+        const memoryUri = mongoServer.getUri();
+        await mongoose.connect(memoryUri, connectionOptions);
+        logger.info(`Connected to In-Memory MongoDB successfully at ${memoryUri}`);
+        return;
+      } catch (memErr) {
+        logger.error('In-memory MongoDB fallback failed or module missing', {
+          error: memErr instanceof Error ? memErr.message : String(memErr)
+        });
+      }
+    }
+
+    logger.error('Failed to connect to MongoDB. Please provide a valid MongoDB Atlas connection string in backend/.env', {
+      error: errMessage,
     });
     throw error;
   }

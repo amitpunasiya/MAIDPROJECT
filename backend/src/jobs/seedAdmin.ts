@@ -2,6 +2,9 @@
 import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 // ─── Credentials (change before production!) ─────────────────────────────────
 const ADMIN_EMAIL = 'admin@maidproject.com';
 const ADMIN_PASSWORD = 'Admin@1234';
@@ -9,7 +12,7 @@ const ADMIN_NAME = 'Super Admin';
 const ADMIN_PHONE = '9000000000';
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MONGODB_URI = 'mongodb://127.0.0.1:27017/maid_cook_db';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/maid_cook_db';
 const SALT_ROUNDS = 12;
 
 // Minimal schemas (strict: false so we can insert any fields)
