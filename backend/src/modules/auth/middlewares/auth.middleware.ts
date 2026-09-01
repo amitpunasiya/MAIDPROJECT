@@ -11,6 +11,7 @@ declare global {
         id: string;
         email: string;
         role: UserRole;
+        roles?: (UserRole | string)[];
       };
     }
   }
@@ -46,6 +47,7 @@ export const authenticate = async (
       id: user._id.toString(),
       email: user.email,
       role: user.role,
+      roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
     };
 
     next();
@@ -62,19 +64,24 @@ export const requireRoles = (...allowedRoles: (UserRole | string)[]) => {
     }
 
     const userRole = req.user.role;
+    const userRoles = (req.user.roles && req.user.roles.length > 0)
+      ? req.user.roles
+      : [userRole];
 
     const isAllowed = allowedRoles.some((role) => {
-      if (userRole === UserRole.SUPER_ADMIN) {
+      if (userRoles.includes(UserRole.SUPER_ADMIN) || userRoles.includes(UserRole.ADMIN)) {
         return true;
       }
       if (role === 'provider' || role === UserRole.PROVIDER) {
-        return (
-          userRole === UserRole.PROVIDER ||
-          userRole === UserRole.COOK ||
-          userRole === UserRole.MAID
+        return userRoles.some(
+          (r) =>
+            r === UserRole.PROVIDER ||
+            r === UserRole.COOK ||
+            r === UserRole.MAID ||
+            r === 'provider'
         );
       }
-      return userRole === role;
+      return userRoles.includes(role as UserRole) || userRoles.includes(role as any);
     });
 
     if (!isAllowed) {

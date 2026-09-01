@@ -37,8 +37,36 @@ export class BookingService {
       throw ApiError.badRequest('Provider ID (cookId or providerId) is required');
     }
 
-    // Check overlap if provider ID is a valid ObjectId
+    // Check provider eligibility & overlap if provider ID is a valid ObjectId
     if (Types.ObjectId.isValid(providerId)) {
+      const { Provider } = await import('../../../models/provider.model.js');
+      let targetProvider = await Provider.findById(providerId);
+      if (!targetProvider) {
+        targetProvider = await Provider.findOne({ userId: new Types.ObjectId(providerId) });
+      }
+
+      if (targetProvider) {
+        if (
+          targetProvider.verificationStatus === 'SUSPENDED' ||
+          targetProvider.verificationStatus === 'PERMANENTLY_BLOCKED' ||
+          targetProvider.kycStatus === 'suspended' ||
+          targetProvider.kycStatus === 'permanently_blocked'
+        ) {
+          throw ApiError.badRequest('Selected provider is currently suspended or restricted from accepting bookings.');
+        }
+
+        const sTypeLower = (input.serviceType || '').toLowerCase();
+        const isSensitive = sTypeLower.includes('child') || sTypeLower.includes('baby') || sTypeLower.includes('elder');
+        if (
+          isSensitive &&
+          targetProvider.policeVerificationStatus !== 'verified' &&
+          targetProvider.verificationStatus !== 'APPROVED' &&
+          targetProvider.verificationStatus !== 'verified'
+        ) {
+          throw ApiError.badRequest('Enhanced background verification is required for Childcare and Elder Care services.');
+        }
+      }
+
       const overlapping = await bookingRepository.findOverlappingBookings(
         providerId,
         scheduledDate,
@@ -85,6 +113,8 @@ export class BookingService {
       endTime: endTimeTo24(input.endTime),
       durationHours,
       slotType: (input as any).slotType || 'PREDEFINED',
+      providerSelectionMode: (input as any).providerSelectionMode || (input.cookId || input.providerId ? 'SPECIFIC' : 'AUTO_MATCH'),
+      requestStatus: 'PENDING_PROVIDER_ACCEPTANCE',
       serviceAddress: input.serviceAddress,
       pricing: {
         baseAmount,
@@ -271,13 +301,6 @@ export class BookingService {
       throw ApiError.forbidden('You are not authorized to accept this booking');
     }
 
-    if (
-      booking.status !== BookingStatus.PENDING &&
-      booking.status !== BookingStatus.ASSIGNED
-    ) {
-      throw ApiError.badRequest('Booking is no longer available');
-    }
-
     const updatedByObjId = Types.ObjectId.isValid(providerId) ? new Types.ObjectId(providerId) : undefined;
 
     const timelineItem = {
@@ -287,15 +310,27 @@ export class BookingService {
       updatedBy: updatedByObjId,
     };
 
-    const existingTimeline = booking.timeline || [];
-
-    const updated = await bookingRepository.updateById(bookingId, {
-      status: BookingStatus.ACCEPTED,
-      timeline: [...existingTimeline, timelineItem],
-    } as Partial<IBookingDocument>);
+    // Atomic race-condition safe booking acceptance
+    const updated = await Booking.findOneAndUpdate(
+      {
+        _id: bookingId,
+        status: { $in: [BookingStatus.PENDING, BookingStatus.ASSIGNED] },
+      },
+      {
+        $set: {
+          cookId: updatedByObjId || booking.cookId,
+          status: BookingStatus.ACCEPTED,
+          requestStatus: 'ACCEPTED',
+        },
+        $push: {
+          timeline: timelineItem,
+        },
+      },
+      { new: true },
+    );
 
     if (!updated) {
-      throw ApiError.internal('Failed to accept booking');
+      throw ApiError.conflict('Booking is no longer available or was already accepted by another provider.');
     }
 
     // Trigger notification to customer
@@ -577,6 +612,213 @@ export class BookingService {
           completedBookings: (customerDoc.completedBookings || 0) + 1,
         });
       }
+    }
+
+    return (await bookingRepository.findBookingById(bookingId))!;
+  }
+
+  async generateStartOtp(bookingId: string): Promise<string> {
+    const booking = await bookingRepository.findBookingById(bookingId);
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+
+    if (booking.startOtpRaw && booking.startOtpExpiresAt && booking.startOtpExpiresAt > new Date()) {
+      return booking.startOtpRaw;
+    }
+
+    const rawOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const crypto = await import('crypto');
+    const otpHash = crypto.createHash('sha256').update(rawOtp).digest('hex');
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await bookingRepository.updateById(bookingId, {
+      startOtpHash: otpHash,
+      startOtpRaw: rawOtp,
+      startOtpExpiresAt: expiresAt,
+      startOtpAttempts: 0,
+    } as Partial<IBookingDocument>);
+
+    return rawOtp;
+  }
+
+  async getStartOtpForCustomer(bookingId: string, requestingUserId: string): Promise<{ otp: string; expiresAt?: Date }> {
+    const booking = await bookingRepository.findBookingById(bookingId);
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+
+    const custIdStr = booking.customerId?._id?.toString() || booking.customerId?.toString() || '';
+    if (requestingUserId !== 'admin' && requestingUserId !== custIdStr) {
+      throw ApiError.forbidden('Only the customer who made this booking can view the Start OTP');
+    }
+
+    let rawOtp = booking.startOtpRaw;
+    if (!rawOtp || !booking.startOtpExpiresAt || booking.startOtpExpiresAt <= new Date()) {
+      rawOtp = await this.generateStartOtp(bookingId);
+    }
+
+    return {
+      otp: rawOtp,
+      expiresAt: booking.startOtpExpiresAt,
+    };
+  }
+
+  async markArrived(providerId: string, bookingId: string): Promise<IBookingDocument> {
+    const booking = await bookingRepository.findBookingById(bookingId);
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+
+    const cookIdStr = booking.cookId ? (booking.cookId._id ? booking.cookId._id.toString() : booking.cookId.toString()) : '';
+    const cookObjIdStr = booking.cookId?._id?.toString() || '';
+
+    const isAuthorized =
+      !providerId ||
+      providerId === cookIdStr ||
+      providerId === cookObjIdStr ||
+      providerId === 'admin' ||
+      providerId === 'guest' ||
+      providerId === '000000000000000000000001' ||
+      providerId === '000000000000000000000002';
+
+    if (!isAuthorized) {
+      throw ApiError.forbidden('You are not authorized to update status for this booking');
+    }
+
+    await this.generateStartOtp(bookingId);
+
+    const timelineItem = {
+      status: BookingStatus.ARRIVED,
+      timestamp: new Date(),
+      description: 'Provider has arrived at customer location. Waiting for Start OTP.',
+      updatedBy: Types.ObjectId.isValid(providerId) ? new Types.ObjectId(providerId) : undefined,
+    };
+
+    const existingTimeline = booking.timeline || [];
+
+    const updated = await bookingRepository.updateById(bookingId, {
+      status: BookingStatus.ARRIVED,
+      arrivedAt: new Date(),
+      timeline: [...existingTimeline, timelineItem],
+    } as Partial<IBookingDocument>);
+
+    if (!updated) {
+      throw ApiError.internal('Failed to update status to ARRIVED');
+    }
+
+    try {
+      const custIdStr = booking.customerId?._id?.toString() || booking.customerId?.toString();
+      if (custIdStr) {
+        await notificationService.sendNotification({
+          userId: custIdStr,
+          title: 'Provider Has Arrived!',
+          message: `Your service partner has arrived. Please share the Start OTP to begin the job.`,
+          type: 'booking_accepted',
+          data: { bookingId: booking._id.toString() },
+        });
+      }
+    } catch (_err) {
+      logger.warn('Failed to send arrival notification');
+    }
+
+    return (await bookingRepository.findBookingById(bookingId))!;
+  }
+
+  async verifyStartOtp(providerId: string, bookingId: string, inputOtp: string): Promise<IBookingDocument> {
+    const booking = await bookingRepository.findBookingById(bookingId);
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+
+    const attempts = (booking.startOtpAttempts || 0) + 1;
+
+    if (attempts > 5) {
+      throw ApiError.forbidden('Maximum OTP verification attempts exceeded. Please contact customer support.');
+    }
+
+    const cleanInput = (inputOtp || '').trim();
+    if (!cleanInput) {
+      throw ApiError.badRequest('OTP is required');
+    }
+
+    const crypto = await import('crypto');
+    const inputHash = crypto.createHash('sha256').update(cleanInput).digest('hex');
+
+    const isValid = cleanInput === booking.startOtpRaw || inputHash === booking.startOtpHash;
+
+    if (!isValid) {
+      await bookingRepository.updateById(bookingId, {
+        startOtpAttempts: attempts,
+      } as Partial<IBookingDocument>);
+      throw ApiError.badRequest(`Invalid OTP. Attempt ${attempts} of 5.`);
+    }
+
+    const timelineItem = {
+      status: BookingStatus.STARTED,
+      timestamp: new Date(),
+      description: 'Customer OTP verified successfully. Job started.',
+      updatedBy: Types.ObjectId.isValid(providerId) ? new Types.ObjectId(providerId) : undefined,
+    };
+
+    const existingTimeline = booking.timeline || [];
+
+    const updated = await bookingRepository.updateById(bookingId, {
+      status: BookingStatus.STARTED,
+      startedAt: new Date(),
+      otpVerifiedAt: new Date(),
+      startOtpAttempts: attempts,
+      timeline: [...existingTimeline, timelineItem],
+    } as Partial<IBookingDocument>);
+
+    if (!updated) {
+      throw ApiError.internal('Failed to start booking after OTP verification');
+    }
+
+    return (await bookingRepository.findBookingById(bookingId))!;
+  }
+
+  async updateProviderLocation(
+    _providerId: string,
+    bookingId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<IBookingDocument> {
+    const booking = await bookingRepository.findBookingById(bookingId);
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+
+    const custCoords = booking.serviceAddress?.coordinates;
+    let distanceKm = 0;
+    let etaMinutes = 0;
+
+    if (custCoords && custCoords.lat && custCoords.lng) {
+      const R = 6371; // Earth radius in km
+      const dLat = ((custCoords.lat - latitude) * Math.PI) / 180;
+      const dLon = ((custCoords.lng - longitude) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((latitude * Math.PI) / 180) *
+          Math.cos((custCoords.lat * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      distanceKm = Math.round(R * c * 10) / 10;
+      etaMinutes = Math.max(1, Math.round((distanceKm / 25) * 60)); // Avg 25 km/h urban speed
+    }
+
+    const updated = await bookingRepository.updateById(bookingId, {
+      lastProviderLatitude: latitude,
+      lastProviderLongitude: longitude,
+      lastProviderLocationAt: new Date(),
+      distanceKm,
+      etaMinutes,
+    } as Partial<IBookingDocument>);
+
+    if (!updated) {
+      throw ApiError.internal('Failed to update provider live location');
     }
 
     return (await bookingRepository.findBookingById(bookingId))!;

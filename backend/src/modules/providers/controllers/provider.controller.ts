@@ -198,6 +198,52 @@ export class ProviderController {
     const provider = await providerService.updateSkills(id, skills || [], req.user.id, isAdmin);
     return ApiResponse.ok(res, 'Worker skills updated successfully', { provider });
   });
+
+  permanentlyBlockProvider = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized();
+    }
+
+    const id = req.params.id as string;
+    const { reason } = req.body || {};
+    const provider = await providerService.permanentlyBlockProvider(id, req.user.id, reason);
+
+    return ApiResponse.ok(res, 'Provider permanently blocked successfully', { provider });
+  });
+
+  submitKycDocument = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized();
+    }
+
+    const input = req.body;
+    const id = (req.params.id as string) || req.user.id;
+    const provider = await providerService.submitKycDocument(id, input, req.user.id);
+
+    return ApiResponse.ok(res, 'KYC documents submitted successfully for review', { provider });
+  });
+
+  verifyHealthcareKyc = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized();
+    }
+
+    const providerId = req.params.providerId as string;
+    const { action, rejectionReason } = req.body;
+
+    const provider = await providerService.verifyHealthcareKyc(providerId, action, rejectionReason, req.user.id);
+    return ApiResponse.ok(res, `Provider KYC ${action} status processed successfully`, { provider });
+  });
+
+  getKycDetailsForAdmin = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized();
+    }
+
+    const providerId = req.params.providerId as string;
+    const kycDetails = await providerService.getKycDetailsForAdmin(providerId, req.user.id);
+    return ApiResponse.ok(res, 'KYC details retrieved for admin verification', { kycDetails });
+  });
 }
 
 export const providerController = new ProviderController();

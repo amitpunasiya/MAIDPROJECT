@@ -3,6 +3,10 @@ export enum UserRole {
   COOK = 'cook',
   MAID = 'maid',
   PROVIDER = 'provider',
+  PHYSIOTHERAPIST = 'physiotherapist',
+  OCCUPATIONAL_THERAPIST = 'occupational_therapist',
+  CHILD_CARE_PROVIDER = 'child_care_provider',
+  ADULT_CARE_PROVIDER = 'adult_care_provider',
   ADMIN = 'admin',
   SUPER_ADMIN = 'super_admin',
 }
@@ -10,6 +14,7 @@ export enum UserRole {
 export interface JwtAccessPayload {
   sub: string;
   role: UserRole;
+  roles?: UserRole[];
   email: string;
 }
 
@@ -32,6 +37,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   role: UserRole;
+  roles?: UserRole[];
 }
 
 export interface PaginationQuery {

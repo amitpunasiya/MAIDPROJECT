@@ -21,6 +21,7 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
+      roles: decoded.roles || [decoded.role],
     };
 
     next();
@@ -50,6 +51,7 @@ export const authenticateOptional = (req: Request, _res: Response, next: NextFun
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
+      roles: decoded.roles || [decoded.role],
     };
   } catch {
     // Ignore invalid token for optional auth

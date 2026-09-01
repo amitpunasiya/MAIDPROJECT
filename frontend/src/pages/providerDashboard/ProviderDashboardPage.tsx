@@ -28,6 +28,8 @@ import {
   Divider,
   Stack,
   CircularProgress,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Work as WorkIcon,
@@ -44,6 +46,7 @@ import {
 import { AvatarUploader } from '../../components';
 import { mediaApi } from '../../services/api';
 import api from '../../services/api';
+import bookingApi from '../../services/api/booking.api';
 
 export const ProviderDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -59,6 +62,12 @@ export const ProviderDashboardPage: React.FC = () => {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [rejectReasonModalOpen, setRejectReasonModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Start OTP & Lifecycle State
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
 
   // Fetch Booking Requests for Worker
   const fetchWorkerBookings = useCallback(async () => {
@@ -208,8 +217,15 @@ export const ProviderDashboardPage: React.FC = () => {
     }
   };
 
-  const pendingRequests = bookingRequests.filter((b) => b.status === 'pending');
-  const todayBookings = bookingRequests.filter((b) => b.status === 'accepted' || b.status === 'confirmed');
+  const [selectedServiceFilter, setSelectedServiceFilter] = useState<string>('ALL');
+
+  const filteredBookingRequests = bookingRequests.filter((b) => {
+    if (selectedServiceFilter === 'ALL') return true;
+    return (b.serviceType || '').toLowerCase() === selectedServiceFilter.toLowerCase();
+  });
+
+  const pendingRequests = filteredBookingRequests.filter((b) => b.status === 'pending');
+  const todayBookings = filteredBookingRequests.filter((b) => b.status === 'accepted' || b.status === 'confirmed');
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -349,6 +365,34 @@ export const ProviderDashboardPage: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Service Filter Bar for Multi-Service Providers */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, flexWrap: 'wrap', gap: 2 }}>
+        <Typography variant="h6" fontWeight={800}>
+          Service Requests Management
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" fontWeight={800} color="text.secondary">
+            FILTER BY SERVICE:
+          </Typography>
+          <Select
+            size="small"
+            value={selectedServiceFilter}
+            onChange={(e) => setSelectedServiceFilter(e.target.value)}
+            sx={{ bgcolor: 'background.paper', borderRadius: 2, minWidth: 170, fontSize: '0.85rem', fontWeight: 700 }}
+          >
+            <MenuItem value="ALL">All Offered Services</MenuItem>
+            <MenuItem value="cook">Home Cook</MenuItem>
+            <MenuItem value="maid">House Maid</MenuItem>
+            <MenuItem value="babysitter">Babysitter</MenuItem>
+            <MenuItem value="cleaner">Cleaner</MenuItem>
+            <MenuItem value="eldercare">Elder Care</MenuItem>
+            <MenuItem value="laundry">Laundry</MenuItem>
+            <MenuItem value="driver">Driver</MenuItem>
+            <MenuItem value="other">Other</MenuItem>
+          </Select>
+        </Box>
+      </Box>
 
       {/* Tabs Bar */}
       <Paper elevation={0} sx={{ mb: 3, borderRadius: 2, border: '1px solid #e2e8f0' }}>
@@ -588,6 +632,12 @@ export const ProviderDashboardPage: React.FC = () => {
                 </Box>
               )}
 
+              <Box sx={{ mt: 2, p: 1.5, bgcolor: '#F1F5F9', borderRadius: 2 }}>
+                <Typography variant="caption" fontWeight={800} color="primary.main">
+                  💳 PAYMENT STATUS: Paid through platform (Customer cannot pay provider directly)
+                </Typography>
+              </Box>
+
               <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" fontWeight={800} color="text.secondary">TOTAL PAYOUT:</Typography>
                 <Typography variant="h5" fontWeight={900} color="success.main">₹{selectedBooking.pricing?.totalAmount || 500}</Typography>
@@ -595,25 +645,95 @@ export const ProviderDashboardPage: React.FC = () => {
             </Box>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => {
-                setDetailModalOpen(false);
-                setRejectReasonModalOpen(true);
-              }}
-            >
-              Decline
-            </Button>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={() => handleAcceptRequest(selectedBooking.id || selectedBooking._id)}
-              sx={{ fontWeight: 800 }}
-            >
-              Accept Request
-            </Button>
+          <DialogActions sx={{ p: 2, gap: 1, flexWrap: 'wrap' }}>
+            {selectedBooking.status === 'pending' && (
+              <>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={() => {
+                    setDetailModalOpen(false);
+                    setRejectReasonModalOpen(true);
+                  }}
+                >
+                  Decline
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={() => handleAcceptRequest(selectedBooking.id || selectedBooking._id)}
+                  sx={{ fontWeight: 800 }}
+                >
+                  Accept Request
+                </Button>
+              </>
+            )}
+
+            {(selectedBooking.status === 'accepted' || selectedBooking.status === 'provider_accepted' || selectedBooking.status === 'confirmed') && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={async () => {
+                  const bId = selectedBooking.id || selectedBooking._id;
+                  await bookingApi.markOnTheWay(bId);
+                  setDetailModalOpen(false);
+                  setAlertMsg('✓ Status updated: On the way to customer location');
+                  void fetchWorkerBookings();
+                }}
+                sx={{ fontWeight: 800 }}
+              >
+                🚀 Mark On The Way
+              </Button>
+            )}
+
+            {selectedBooking.status === 'on_the_way' && (
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={async () => {
+                  const bId = selectedBooking.id || selectedBooking._id;
+                  await bookingApi.markArrived(bId);
+                  setDetailModalOpen(false);
+                  setOtpModalOpen(true);
+                  setAlertMsg('✓ Status updated: Arrived at location');
+                  void fetchWorkerBookings();
+                }}
+                sx={{ fontWeight: 800 }}
+              >
+                📍 I Have Arrived
+              </Button>
+            )}
+
+            {(selectedBooking.status === 'arrived' || selectedBooking.status === 'otp_verification_pending') && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => {
+                  setDetailModalOpen(false);
+                  setOtpModalOpen(true);
+                }}
+                sx={{ fontWeight: 800 }}
+              >
+                🔐 Enter Customer Start OTP
+              </Button>
+            )}
+
+            {selectedBooking.status === 'started' && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={async () => {
+                  const bId = selectedBooking.id || selectedBooking._id;
+                  await bookingApi.markComplete(bId);
+                  setDetailModalOpen(false);
+                  setAlertMsg('🎉 Task completed successfully!');
+                  void fetchWorkerBookings();
+                }}
+                sx={{ fontWeight: 800 }}
+              >
+                ✓ Complete Job
+              </Button>
+            )}
           </DialogActions>
         </Dialog>
       )}
@@ -645,6 +765,63 @@ export const ProviderDashboardPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* START JOB OTP VERIFICATION DIALOG */}
+      {selectedBooking && (
+        <Dialog open={otpModalOpen} onClose={() => setOtpModalOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4, p: 1 } }}>
+          <DialogTitle variant="subtitle1" fontWeight={800} color="primary.main">
+            🔐 Enter Customer Start OTP
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Ask your customer for their 4-digit Start OTP shown on their booking confirmation screen to begin the task.
+            </Typography>
+
+            {otpError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {otpError}
+              </Alert>
+            )}
+
+            <TextField
+              label="4-Digit Start OTP"
+              fullWidth
+              size="small"
+              value={otpInput}
+              onChange={(e) => setOtpInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+              placeholder="e.g. 4827"
+              slotProps={{ input: { sx: { fontSize: '1.4rem', letterSpacing: 6, fontWeight: 900, textAlign: 'center' } } }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOtpModalOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="success"
+              disabled={otpInput.length < 4 || otpLoading}
+              onClick={async () => {
+                setOtpLoading(true);
+                setOtpError(null);
+                try {
+                  const bId = selectedBooking.id || selectedBooking._id;
+                  await bookingApi.verifyStartOtp(bId, otpInput);
+                  setOtpModalOpen(false);
+                  setOtpInput('');
+                  setAlertMsg('✓ Start OTP verified! Service started successfully.');
+                  void fetchWorkerBookings();
+                } catch (err: any) {
+                  setOtpError(err?.message || 'Invalid OTP. Please check with customer.');
+                } finally {
+                  setOtpLoading(false);
+                }
+              }}
+              sx={{ fontWeight: 800 }}
+            >
+              {otpLoading ? <CircularProgress size={20} /> : 'VERIFY OTP & START JOB'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Container>
   );
 };

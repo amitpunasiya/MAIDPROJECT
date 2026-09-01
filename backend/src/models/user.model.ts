@@ -19,6 +19,7 @@ export interface IUser {
   phone: string;
   password: string;
   role: UserRole;
+  roles?: UserRole[];
   isPhoneVerified: boolean;
   isEmailVerified: boolean;
   isActive: boolean;
@@ -91,6 +92,10 @@ const userSchema = new Schema<IUserDocument>(
       enum: Object.values(UserRole),
       default: UserRole.CUSTOMER,
     },
+    roles: {
+      type: [String],
+      default: [UserRole.CUSTOMER],
+    },
     isPhoneVerified: {
       type: Boolean,
       default: false,
@@ -154,6 +159,9 @@ const userSchema = new Schema<IUserDocument>(
     toJSON: {
       transform(_doc, ret) {
         const sanitized = ret as Record<string, unknown>;
+        if (!sanitized.roles || !Array.isArray(sanitized.roles) || sanitized.roles.length === 0) {
+          sanitized.roles = [sanitized.role || UserRole.CUSTOMER];
+        }
         delete sanitized.password;
         delete sanitized.passwordResetTokenHash;
         delete sanitized.passwordResetExpires;
@@ -165,6 +173,15 @@ const userSchema = new Schema<IUserDocument>(
     },
   },
 );
+
+userSchema.pre('save', function (next) {
+  if (!this.roles || this.roles.length === 0) {
+    this.roles = [this.role || UserRole.CUSTOMER];
+  } else if (this.role && !this.roles.includes(this.role)) {
+    this.roles.push(this.role);
+  }
+  next();
+});
 
 userSchema.index({ role: 1, isActive: 1 });
 

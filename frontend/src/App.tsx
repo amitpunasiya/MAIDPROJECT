@@ -44,6 +44,7 @@ const AppContent: React.FC = () => {
       <CssBaseline />
       <Seo />
       <OfflineBanner />
+      <div id="recaptcha-container"></div>
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>

@@ -44,6 +44,7 @@ export const createBookingSchema = z
     photos: z.array(z.string()).optional(),
     notes: z.string().trim().max(1000).optional(),
     slotType: z.enum(['PREDEFINED', 'CUSTOM']).optional().default('PREDEFINED'),
+    providerSelectionMode: z.enum(['SPECIFIC', 'AUTO_MATCH']).optional().default('SPECIFIC'),
   })
   .refine(
     (data) => {

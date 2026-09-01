@@ -2,8 +2,10 @@ import { useAppDispatch, useAppSelector } from './useAppStore';
 import {
   loginSuccess,
   logout as logoutAction,
+  setMode as setModeAction,
   loginThunk,
   registerThunk,
+  becomeProviderThunk,
   sendOtpThunk,
   verifyOtpThunk,
   forgotPasswordThunk,
@@ -20,6 +22,7 @@ import { IUser, UserRole } from '../types';
 import {
   LoginPayload,
   RegisterPayload,
+  BecomeProviderPayload,
   VerifyOtpPayload,
   ForgotPasswordPayload,
   ResetPasswordPayload,
@@ -29,8 +32,23 @@ import {
 
 export const useAuth = () => {
   const dispatch = useAppDispatch();
-  const { user, token, isAuthenticated, loading, error, otpStatus, profileStatus } =
+  const { user, token, isAuthenticated, loading, error, otpStatus, profileStatus, currentMode } =
     useAppSelector((state) => state.auth);
+
+  const userRoles = user?.roles && user.roles.length > 0 ? user.roles : user?.role ? [user.role] : [];
+  const isCustomer = userRoles.includes(UserRole.CUSTOMER) || user?.role === UserRole.CUSTOMER || !user;
+  const isProvider =
+    userRoles.includes(UserRole.PROVIDER) ||
+    userRoles.includes(UserRole.COOK) ||
+    userRoles.includes(UserRole.MAID) ||
+    user?.role === UserRole.PROVIDER ||
+    user?.role === UserRole.COOK ||
+    user?.role === UserRole.MAID;
+  const hasDualRoles = Boolean(isCustomer && isProvider);
+
+  const setMode = (mode: 'CUSTOMER' | 'PROVIDER') => {
+    dispatch(setModeAction(mode));
+  };
 
   const loginDemoUser = (role: UserRole = UserRole.CUSTOMER) => {
     const demoUser: IUser = {
@@ -39,6 +57,7 @@ export const useAuth = () => {
       email: `${role}@example.com`,
       phone: '+919876543210',
       role,
+      roles: role === UserRole.CUSTOMER ? [UserRole.CUSTOMER] : [UserRole.CUSTOMER, UserRole.PROVIDER],
       city: 'Bengaluru',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
     };
@@ -51,6 +70,10 @@ export const useAuth = () => {
 
   const register = async (payload: RegisterPayload) => {
     return dispatch(registerThunk(payload)).unwrap();
+  };
+
+  const becomeProvider = async (payload: BecomeProviderPayload) => {
+    return dispatch(becomeProviderThunk(payload)).unwrap();
   };
 
   const sendOtp = async (phone: string) => {
@@ -113,8 +136,14 @@ export const useAuth = () => {
     error,
     otpStatus,
     profileStatus,
+    currentMode,
+    isCustomer,
+    isProvider,
+    hasDualRoles,
+    setMode,
     login,
     register,
+    becomeProvider,
     sendOtp,
     verifyOtp,
     forgotPassword,

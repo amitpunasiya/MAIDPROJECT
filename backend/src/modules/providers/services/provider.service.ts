@@ -9,7 +9,8 @@ import type {
   AddGalleryItemInput,
 } from '../validators/provider.validator.js';
 import type { IProviderDocument } from '../interfaces/provider.interface.js';
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
+import { User } from '../../../models/user.model.js';
 
 export class ProviderService {
   async createProvider(
@@ -53,6 +54,20 @@ export class ProviderService {
     let provider = await providerRepository.findById(idOrUserId);
     if (!provider) {
       provider = await providerRepository.findByUserId(idOrUserId);
+    }
+    if (!provider && Types.ObjectId.isValid(idOrUserId)) {
+      const user = await User.findById(idOrUserId);
+      if (user) {
+        provider = await providerRepository.create({
+          userId: user._id,
+          fullName: user.name,
+          providerType: 'cook',
+          serviceTypes: ['cook'],
+          verificationStatus: 'PENDING',
+          kycStatus: 'pending',
+          isAvailable: true,
+        });
+      }
     }
     if (!provider) {
       throw ApiError.notFound('Provider profile not found');
@@ -141,7 +156,7 @@ export class ProviderService {
   async verifyProvider(idOrUserId: string, requestingUserId: string): Promise<IProviderDocument> {
     const provider = await this.getProviderById(idOrUserId);
     const updated = await providerRepository.updateById(provider._id.toString(), {
-      verificationStatus: 'verified',
+      verificationStatus: 'APPROVED',
       kycStatus: 'approved',
       aadhaarVerificationStatus: 'verified',
       policeVerificationStatus: 'verified',
@@ -150,7 +165,7 @@ export class ProviderService {
       throw ApiError.internal('Failed to verify provider');
     }
 
-    logger.info('Provider verification status updated to VERIFIED', {
+    logger.info('Provider verification status updated to APPROVED', {
       providerId: provider._id.toString(),
       verifiedBy: requestingUserId,
     });
@@ -161,6 +176,7 @@ export class ProviderService {
   async suspendProvider(idOrUserId: string, requestingUserId: string): Promise<IProviderDocument> {
     const provider = await this.getProviderById(idOrUserId);
     const updated = await providerRepository.updateById(provider._id.toString(), {
+      verificationStatus: 'SUSPENDED',
       kycStatus: 'suspended',
       isAvailable: false,
     });
@@ -176,10 +192,213 @@ export class ProviderService {
     return updated;
   }
 
+  async permanentlyBlockProvider(
+    idOrUserId: string,
+    requestingUserId: string,
+    reason = 'Permanent ban by admin',
+  ): Promise<IProviderDocument> {
+    const provider = await this.getProviderById(idOrUserId);
+
+    if (provider.documents?.documentNumberHash) {
+      const { BlockedIdentity } = await import('../../../models/blockedIdentity.model.js');
+      await BlockedIdentity.updateOne(
+        { identityHash: provider.documents.documentNumberHash },
+        {
+          identityHash: provider.documents.documentNumberHash,
+          countryCode: provider.documents.countryCode || provider.location?.country || 'IN',
+          documentType: provider.documents.documentType || 'national_id',
+          maskedIdentity: provider.documents.maskedIdentityNumber || '',
+          originalProviderId: provider._id,
+          reason,
+          blockedBy: requestingUserId as any,
+          blockedAt: new Date(),
+        },
+        { upsert: true },
+      );
+    }
+
+    const updated = await providerRepository.updateById(provider._id.toString(), {
+      verificationStatus: 'PERMANENTLY_BLOCKED',
+      kycStatus: 'permanently_blocked',
+      isAvailable: false,
+      blockedAt: new Date(),
+      blockedBy: requestingUserId as any,
+      blockReason: reason,
+    });
+
+    if (!updated) {
+      throw ApiError.internal('Failed to permanently block provider');
+    }
+
+    logger.info('Provider permanently blocked', {
+      providerId: provider._id.toString(),
+      blockedBy: requestingUserId,
+      reason,
+    });
+
+    return updated;
+  }
+
+  async submitKycDocument(
+    idOrUserId: string,
+    input: {
+      aadhaarNumber?: string;
+      aadhaarDoc?: string;
+      panNumber?: string;
+      panDoc?: string;
+      qualification?: string;
+      specializations?: string[];
+      countryCode?: string;
+      documentType?: 'aadhaar' | 'ssn_id' | 'passport' | 'drivers_license' | 'national_id';
+      documentNumber?: string;
+      documentFrontDoc?: string;
+      documentBackDoc?: string;
+      selfiePhotoDoc?: string;
+    },
+    requestingUserId?: string,
+  ): Promise<IProviderDocument> {
+    const provider = await this.getProviderById(idOrUserId);
+
+    if (requestingUserId && provider.userId.toString() !== requestingUserId) {
+      const user = await User.findById(requestingUserId);
+      if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+        throw ApiError.forbidden('You can only submit KYC documents for your own provider profile');
+      }
+    }
+
+    const crypto = await import('crypto');
+    const aadhaarVal = (input.aadhaarNumber || input.documentNumber || '').trim();
+    const panVal = (input.panNumber || '').trim();
+
+    const aadhaarMasked = aadhaarVal.length >= 4 ? `XXXX-XXXX-${aadhaarVal.replace(/\D/g, '').slice(-4)}` : '';
+    const panMasked = panVal.length >= 4 ? `XXXXX${panVal.slice(-4).toUpperCase()}` : '';
+
+    const docHash = crypto.createHash('sha256').update(`IN:KYC:${aadhaarVal}:${panVal}`).digest('hex');
+
+    const { BlockedIdentity } = await import('../../../models/blockedIdentity.model.js');
+    const blocked = await BlockedIdentity.findOne({ identityHash: docHash });
+    if (blocked) {
+      throw ApiError.forbidden('This identity has been restricted from offering services on this platform.');
+    }
+
+    const updatedDocs = {
+      ...provider.documents,
+      countryCode: input.countryCode || 'IN',
+      documentType: input.documentType || 'aadhaar',
+      documentNumberHash: docHash,
+      maskedIdentityNumber: aadhaarMasked || panMasked || 'XXXX-XXXX-XXXX',
+      aadhaarNumber: aadhaarVal,
+      aadhaarDoc: input.aadhaarDoc || input.documentFrontDoc || '',
+      panNumber: panVal,
+      panDoc: input.panDoc || input.documentBackDoc || '',
+      documentFrontDoc: input.aadhaarDoc || input.documentFrontDoc || '',
+      documentBackDoc: input.panDoc || input.documentBackDoc || '',
+      selfiePhotoDoc: input.selfiePhotoDoc || provider.documents?.selfiePhotoDoc || '',
+    };
+
+    const updateFields: Partial<IProviderDocument> = {
+      documents: updatedDocs,
+      verificationStatus: 'UNDER_REVIEW',
+      kycStatus: 'PENDING',
+      kycRejectionReason: '',
+    };
+
+    if (input.qualification) updateFields.qualification = input.qualification;
+    if (input.specializations && input.specializations.length > 0) updateFields.specializations = input.specializations;
+
+    const updated = await providerRepository.updateById(provider._id.toString(), updateFields);
+
+    if (!updated) {
+      throw ApiError.internal('Failed to submit KYC documents');
+    }
+
+    logger.info('KYC documents submitted for review', {
+      providerId: provider._id.toString(),
+      kycStatus: 'PENDING',
+    });
+
+    return updated;
+  }
+
+  async verifyHealthcareKyc(
+    providerId: string,
+    action: 'approve' | 'reject' | 'request_resubmission',
+    rejectionReason = '',
+    adminUserId: string,
+  ): Promise<IProviderDocument> {
+    const provider = await this.getProviderById(providerId);
+
+    let kycStatus = 'PENDING';
+    let verificationStatus = provider.verificationStatus;
+    let isAvailable = provider.isAvailable;
+
+    if (action === 'approve') {
+      kycStatus = 'VERIFIED';
+      verificationStatus = 'APPROVED';
+      isAvailable = true;
+    } else if (action === 'reject') {
+      kycStatus = 'REJECTED';
+      verificationStatus = 'REJECTED';
+      isAvailable = false;
+    } else if (action === 'request_resubmission') {
+      kycStatus = 'RESUBMISSION_REQUESTED';
+      isAvailable = false;
+    }
+
+    const updated = await providerRepository.updateById(provider._id.toString(), {
+      kycStatus,
+      verificationStatus,
+      isAvailable,
+      kycRejectionReason: rejectionReason,
+    });
+
+    if (!updated) {
+      throw ApiError.internal('Failed to verify provider KYC status');
+    }
+
+    logger.info(`Provider KYC status updated to ${kycStatus}`, {
+      providerId: provider._id.toString(),
+      action,
+      adminUserId,
+    });
+
+    return updated;
+  }
+
+  async getKycDetailsForAdmin(providerId: string, adminUserId: string): Promise<any> {
+    const adminUser = await User.findById(adminUserId);
+    if (!adminUser || (adminUser.role !== 'admin' && adminUser.role !== 'super_admin')) {
+      throw ApiError.forbidden('Only authorized administrators can access full KYC details');
+    }
+
+    const provider = await providerRepository.findById(providerId);
+    if (!provider) {
+      throw ApiError.notFound('Provider profile not found');
+    }
+
+    const docs = provider.documents || {};
+    return {
+      providerId: provider._id.toString(),
+      fullName: provider.fullName,
+      providerType: provider.providerType,
+      kycStatus: provider.kycStatus,
+      maskedAadhaar: docs.aadhaarNumber ? `XXXX-XXXX-${String(docs.aadhaarNumber).slice(-4)}` : 'XXXX-XXXX-XXXX',
+      maskedPan: docs.panNumber ? `XXXXX${String(docs.panNumber).slice(-4).toUpperCase()}` : 'XXXXX0000X',
+      rawAadhaarNumber: docs.aadhaarNumber || '',
+      rawPanNumber: docs.panNumber || '',
+      aadhaarDocUrl: docs.aadhaarDoc || docs.documentFrontDoc || '',
+      panDocUrl: docs.panDoc || docs.documentBackDoc || '',
+      qualification: provider.qualification || '',
+      specializations: provider.specializations || [],
+      kycRejectionReason: provider.kycRejectionReason || '',
+    };
+  }
+
   async activateProvider(idOrUserId: string, requestingUserId: string): Promise<IProviderDocument> {
     const provider = await this.getProviderById(idOrUserId);
     const updated = await providerRepository.updateById(provider._id.toString(), {
-      kycStatus: 'approved',
+      kycStatus: 'VERIFIED',
+      verificationStatus: 'APPROVED',
       isAvailable: true,
     });
     if (!updated) {
@@ -197,8 +416,9 @@ export class ProviderService {
   async rejectProvider(idOrUserId: string, requestingUserId: string): Promise<IProviderDocument> {
     const provider = await this.getProviderById(idOrUserId);
     const updated = await providerRepository.updateById(provider._id.toString(), {
-      verificationStatus: 'rejected',
-      kycStatus: 'rejected',
+      verificationStatus: 'REJECTED',
+      kycStatus: 'REJECTED',
+      isAvailable: false,
     });
     if (!updated) {
       throw ApiError.internal('Failed to reject provider');

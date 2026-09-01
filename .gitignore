@@ -31,6 +31,39 @@ Thumbs.db
 coverage/
 
 # Docker
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# Testing
+coverage/
+
+# Docker
 .docker/
 
 # Firebase
@@ -40,6 +73,7 @@ firebase-debug.log
 # Uploads (local dev)
 uploads/
 temp/
+.mongo_temp/
 
 # Misc
 *.pem

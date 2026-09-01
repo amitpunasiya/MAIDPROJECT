@@ -38,6 +38,7 @@ interface UserRecord {
   email: string;
   phone: string;
   role: string;
+  roles?: string[];
   city: string;
   isBlocked: boolean;
   registeredAt: string;
@@ -71,6 +72,7 @@ export const UserManagement: React.FC = () => {
         email: u.email || 'N/A',
         phone: u.phone || u.phoneNumber || 'N/A',
         role: u.role || 'customer',
+        roles: Array.isArray(u.roles) && u.roles.length > 0 ? u.roles : [u.role || 'customer'],
         city: u.city || u.addresses?.[0]?.city || 'N/A',
         isBlocked: typeof u.isBlocked === 'boolean' ? u.isBlocked : u.isActive === false,
         registeredAt: u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A',
@@ -222,7 +224,11 @@ export const UserManagement: React.FC = () => {
                     </TableCell>
 
                     <TableCell>
-                      <Chip label={user.role.toUpperCase()} size="small" variant="outlined" sx={{ mr: 1 }} />
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
+                        {(user.roles || [user.role]).map((r) => (
+                          <Chip key={r} label={r.toUpperCase()} size="small" variant="outlined" color={r === 'provider' ? 'secondary' : 'primary'} />
+                        ))}
+                      </Box>
                       <Typography variant="caption" color="text.secondary">
                         {user.city}
                       </Typography>

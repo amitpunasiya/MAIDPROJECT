@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { UserRole } from '../types/auth.types.js';
-import { ServiceType } from '../types/domain.enums.js';
 
 const phoneRegex = /^\+?[1-9]\d{9,14}$/;
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
@@ -25,11 +24,14 @@ export const registerSchema = z.object({
       'Password must contain at least one uppercase letter, one lowercase letter, and one number',
     ),
   role: z.nativeEnum(UserRole).default(UserRole.CUSTOMER).optional(),
+  roles: z.array(z.nativeEnum(UserRole)).optional(),
+  isProvider: z.boolean().optional(),
+  services: z.array(z.string()).optional(),
   // Provider (Cook/Maid) specific registration fields
   hourlyRate: z.number().min(0, 'Hourly rate cannot be negative').optional(),
   experienceYears: z.number().min(0).max(60).optional(),
   bio: z.string().trim().max(1000).optional(),
-  serviceTypes: z.array(z.nativeEnum(ServiceType)).optional(),
+  serviceTypes: z.array(z.string()).optional(),
 });
 
 export const loginSchema = z

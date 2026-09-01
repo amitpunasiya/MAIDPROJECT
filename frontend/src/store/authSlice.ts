@@ -9,8 +9,14 @@ import {
   ResetPasswordPayload,
   ChangePasswordPayload,
   UpdateProfilePayload,
+  BecomeProviderPayload,
   AuthUser,
 } from '../services/api/auth.api';
+import {
+  isFirebaseConfigured,
+  sendFirebasePhoneOtp,
+  verifyFirebasePhoneOtpCode,
+} from '../config/firebase';
 
 // ─── State Interface ──────────────────────────────────────────────────────────
 
@@ -22,6 +28,7 @@ export interface AuthState {
   error: string | null;
   otpStatus: 'idle' | 'loading' | 'sent' | 'verified' | 'failed';
   profileStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
+  currentMode: 'CUSTOMER' | 'PROVIDER';
 }
 
 // ─── LocalStorage Persistence Helpers ─────────────────────────────────────────
@@ -38,6 +45,7 @@ const getSavedUser = (): IUser | null => {
 
 const savedToken = localStorage.getItem('accessToken') || null;
 const savedUser = getSavedUser();
+const savedMode = (localStorage.getItem('currentMode') as 'CUSTOMER' | 'PROVIDER') || 'CUSTOMER';
 
 const initialState: AuthState = {
   user: savedUser,
@@ -47,6 +55,7 @@ const initialState: AuthState = {
   error: null,
   otpStatus: 'idle',
   profileStatus: 'idle',
+  currentMode: savedMode,
 };
 
 // ─── Async Thunks ─────────────────────────────────────────────────────────────
@@ -79,11 +88,28 @@ export const registerThunk = createAsyncThunk(
   },
 );
 
+export const becomeProviderThunk = createAsyncThunk(
+  'auth/becomeProvider',
+  async (payload: BecomeProviderPayload, { rejectWithValue }) => {
+    try {
+      const res = await authApi.becomeProvider(payload);
+      if (!res.data) throw new Error(res.message || 'Failed to upgrade to provider');
+      return res.data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to upgrade to provider';
+      return rejectWithValue(msg);
+    }
+  },
+);
+
 export const sendOtpThunk = createAsyncThunk(
   'auth/sendOtp',
   async (phone: string, { rejectWithValue }) => {
     try {
       const res = await authApi.sendOtp(phone);
+      if (isFirebaseConfigured) {
+        await sendFirebasePhoneOtp(phone);
+      }
       return res.data;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to send OTP';
@@ -96,7 +122,15 @@ export const verifyOtpThunk = createAsyncThunk(
   'auth/verifyOtp',
   async (payload: VerifyOtpPayload, { rejectWithValue }) => {
     try {
-      const res = await authApi.verifyOtp(payload);
+      const finalPayload: VerifyOtpPayload = { ...payload };
+      if (!finalPayload.idToken && payload.otp && isFirebaseConfigured) {
+        const idToken = await verifyFirebasePhoneOtpCode(payload.otp);
+        if (idToken) {
+          finalPayload.idToken = idToken;
+        }
+      }
+
+      const res = await authApi.verifyOtp(finalPayload);
       if (!res.data) throw new Error(res.message || 'OTP verification failed');
       return res.data;
     } catch (err: unknown) {
@@ -220,6 +254,7 @@ const mapAuthUser = (user: AuthUser): IUser => ({
   email: user.email,
   phone: user.phone,
   role: user.role,
+  roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
   city: user.city,
   avatar: user.avatar,
 });
@@ -236,6 +271,7 @@ const clearAuthStorage = () => {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('authUser');
   localStorage.removeItem('demoAuth');
+  localStorage.removeItem('currentMode');
 };
 
 // ─── Auth Slice ───────────────────────────────────────────────────────────────
@@ -244,6 +280,14 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
+    setMode: (state, action: PayloadAction<'CUSTOMER' | 'PROVIDER'>) => {
+      state.currentMode = action.payload;
+      try {
+        localStorage.setItem('currentMode', action.payload);
+      } catch {
+        // ignore storage errors
+      }
+    },
     loginSuccess: (
       state,
       action: PayloadAction<{ user: IUser; token: string }>,
@@ -444,6 +488,29 @@ const authSlice = createSlice({
       state.error = (action.payload as string) || 'Profile update failed';
     });
 
+    // ── Become Provider ──
+    builder.addCase(becomeProviderThunk.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(becomeProviderThunk.fulfilled, (state, action) => {
+      state.loading = false;
+      const mappedUser = mapAuthUser(action.payload.user);
+      state.user = mappedUser;
+      state.token = action.payload.accessToken;
+      state.currentMode = 'PROVIDER';
+      saveAuthToStorage(mappedUser, action.payload.accessToken);
+      try {
+        localStorage.setItem('currentMode', 'PROVIDER');
+      } catch {
+        // ignore
+      }
+    });
+    builder.addCase(becomeProviderThunk.rejected, (state, action) => {
+      state.loading = false;
+      state.error = (action.payload as string) || 'Failed to upgrade to provider';
+    });
+
     // ── Refresh Token ──
     builder.addCase(refreshTokenThunk.fulfilled, (state, action) => {
       if (action.payload?.accessToken) {
@@ -461,6 +528,7 @@ const authSlice = createSlice({
 });
 
 export const {
+  setMode,
   loginSuccess,
   logout,
   setAuthLoading,

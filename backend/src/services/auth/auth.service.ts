@@ -37,11 +37,29 @@ const sanitizeUser = (user: IUserDocument) => {
 
 export class AuthService {
   async register(input: RegisterInput, meta?: RequestMeta): Promise<AuthResult> {
-    const role = input.role ?? UserRole.CUSTOMER;
+    const initialRole = input.role ?? UserRole.CUSTOMER;
 
-    if (role === UserRole.ADMIN) {
+    if (initialRole === UserRole.ADMIN) {
       throw ApiError.forbidden('Admin accounts cannot be self-registered');
     }
+
+    const rolesSet = new Set<UserRole>([UserRole.CUSTOMER]);
+    if (initialRole) rolesSet.add(initialRole);
+
+    const isProviderRequested = Boolean(
+      (input as any).isProvider ||
+      (input as any).services?.length ||
+      initialRole === UserRole.PROVIDER ||
+      initialRole === UserRole.COOK ||
+      initialRole === UserRole.MAID
+    );
+
+    if (isProviderRequested) {
+      rolesSet.add(UserRole.PROVIDER);
+    }
+
+    const userRoles = Array.from(rolesSet);
+    const primaryRole = isProviderRequested ? UserRole.PROVIDER : initialRole;
 
     const [emailExists, phoneExists] = await Promise.all([
       userRepository.exists({ email: input.email }),
@@ -63,35 +81,51 @@ export class AuthService {
       email: input.email,
       phone: input.phone,
       password: hashedPassword,
-      role,
+      role: primaryRole,
+      roles: userRoles,
     });
 
-    // Create role-specific profile document
-    if (role === UserRole.CUSTOMER) {
-      await customerRepository.create({
+    // Create Customer profile for customer capability
+    await customerRepository.create({
+      userId: user._id,
+      preferences: {
+        serviceTypes: [ServiceType.COOK],
+        dietaryRestrictions: [],
+        preferredLanguages: [],
+      },
+    });
+
+    // Create Provider profile if provider role requested
+    if (isProviderRequested) {
+      const { Provider } = await import('../../models/provider.model.js');
+      const rawServices = (input as any).services || input.serviceTypes || ['cook'];
+      const selectedServices: string[] = Array.from(new Set(rawServices.map((s: any) => String(s).toLowerCase())));
+
+      await Provider.create({
         userId: user._id,
-        preferences: {
-          serviceTypes: [ServiceType.COOK],
-          dietaryRestrictions: [],
-          preferredLanguages: [],
-        },
-      });
-    } else if (role === UserRole.COOK) {
-      await cookRepository.create({
-        userId: user._id,
+        fullName: user.name,
+        serviceTypes: selectedServices,
+        providerType: selectedServices[0] || 'cook',
         experienceYears: input.experienceYears ?? 0,
-        hourlyRate: input.hourlyRate ?? 100,
-        serviceTypes: input.serviceTypes?.length ? input.serviceTypes : [ServiceType.COOK],
         bio: input.bio ?? '',
-        skills: [],
-        languages: [],
+        pricing: {
+          hourlyPrice: input.hourlyRate ?? 100,
+        },
+        services: selectedServices.map((s: string) => ({
+          serviceName: String(s).toUpperCase(),
+          price: input.hourlyRate ?? 100,
+          duration: '1 hour',
+          category: String(s),
+        })),
+        isAvailable: true,
       });
-    } else if (role === UserRole.MAID) {
+
+      // Backward compatibility with cookRepository
       await cookRepository.create({
         userId: user._id,
         experienceYears: input.experienceYears ?? 0,
         hourlyRate: input.hourlyRate ?? 100,
-        serviceTypes: input.serviceTypes?.length ? input.serviceTypes : [ServiceType.MAID],
+        serviceTypes: selectedServices as any,
         bio: input.bio ?? '',
         skills: [],
         languages: [],
@@ -102,6 +136,7 @@ export class AuthService {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
+      roles: user.roles,
       userAgent: meta?.userAgent,
       ipAddress: meta?.ipAddress,
     });
@@ -145,6 +180,7 @@ export class AuthService {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
+      roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
       userAgent: meta?.userAgent,
       ipAddress: meta?.ipAddress,
     });
@@ -334,6 +370,80 @@ export class AuthService {
     });
 
     return { message: 'Email verified successfully.' };
+  }
+
+  async becomeProvider(
+    userId: string,
+    services: string[],
+    providerDetails?: { experienceYears?: number; bio?: string; hourlyRate?: number },
+    meta?: RequestMeta,
+  ): Promise<AuthResult> {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw ApiError.notFound('User not found');
+    }
+
+    const currentRoles = user.roles && user.roles.length > 0 ? [...user.roles] : [user.role];
+    if (!currentRoles.includes(UserRole.PROVIDER)) {
+      currentRoles.push(UserRole.PROVIDER);
+    }
+
+    const updatedUser = await userRepository.updateById(userId, {
+      roles: currentRoles,
+    });
+
+    if (!updatedUser) {
+      throw ApiError.internal('Failed to update user roles');
+    }
+
+    const selectedServiceTypes = services && services.length > 0 ? services : ['cook'];
+
+    const { Provider } = await import('../../models/provider.model.js');
+    let provider = await Provider.findOne({ userId: user._id });
+    if (!provider) {
+      provider = await Provider.create({
+        userId: user._id,
+        fullName: user.name,
+        serviceTypes: selectedServiceTypes,
+        providerType: selectedServiceTypes[0] || 'cook',
+        experienceYears: providerDetails?.experienceYears ?? 0,
+        bio: providerDetails?.bio ?? '',
+        pricing: {
+          hourlyPrice: providerDetails?.hourlyRate ?? 100,
+        },
+        services: selectedServiceTypes.map((s: string) => ({
+          serviceName: String(s).toUpperCase(),
+          price: providerDetails?.hourlyRate ?? 100,
+          duration: '1 hour',
+          category: String(s),
+        })),
+        isAvailable: true,
+      });
+    } else {
+      provider.serviceTypes = Array.from(new Set([...(provider.serviceTypes || []), ...selectedServiceTypes]));
+      if (providerDetails?.experienceYears !== undefined) provider.experienceYears = providerDetails.experienceYears;
+      if (providerDetails?.bio !== undefined) provider.bio = providerDetails.bio;
+      if (providerDetails?.hourlyRate !== undefined && provider.pricing) {
+        provider.pricing.hourlyPrice = providerDetails.hourlyRate;
+      }
+      await provider.save();
+    }
+
+    const tokens = await tokenService.createTokenPair({
+      userId: updatedUser._id.toString(),
+      email: updatedUser.email,
+      role: updatedUser.role,
+      roles: updatedUser.roles,
+      userAgent: meta?.userAgent,
+      ipAddress: meta?.ipAddress,
+    });
+
+    return {
+      user: updatedUser,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokenService.getAccessTokenExpiresIn(),
+    };
   }
 
   formatAuthResponse(result: AuthResult) {

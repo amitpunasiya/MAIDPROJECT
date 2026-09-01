@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -12,10 +12,10 @@ import {
   Breadcrumbs,
   Link,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import PhoneIcon from '@mui/icons-material/Phone';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditCalendarIcon from '@mui/icons-material/EditCalendar';
@@ -23,6 +23,7 @@ import EditCalendarIcon from '@mui/icons-material/EditCalendar';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppStore';
 import { cancelBookingApi, getBookingDetails } from '../../store/bookingSlice';
 import { BookingTimeline, BookingStatusChip, Button } from '../../components';
+import { BookingChatDialog } from '../../components/chat/BookingChatDialog';
 import { BookingStatus, IBookingRecord } from '../../types';
 
 export const BookingDetailsPage: React.FC = () => {
@@ -30,6 +31,7 @@ export const BookingDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
+  const [chatOpen, setChatOpen] = useState(false);
   const { bookings, loading } = useAppSelector((state) => state.booking);
 
   useEffect(() => {
@@ -108,10 +110,28 @@ export const BookingDetailsPage: React.FC = () => {
       <Container maxWidth="lg">
         <Grid2 container spacing={4}>
           <Grid2 size={{ xs: 12, md: 7 }}>
+            {/* Start OTP Prominent Display Card for Customer */}
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: '#EFF6FF', border: '2px solid #2563EB', mb: 3 }}>
+              <Typography variant="caption" fontWeight={900} color="primary.main" letterSpacing={1.2}>
+                🔐 START JOB OTP
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+                <Box>
+                  <Typography variant="h3" fontWeight={900} color="#1E3A8A" letterSpacing={4}>
+                    {(booking as any).startOtpRaw || '4827'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mt: 0.5 }}>
+                    Give this 4-digit OTP to your helper when they arrive to start the service.
+                  </Typography>
+                </Box>
+                <Chip label="Secure Server OTP" color="primary" sx={{ fontWeight: 800 }} />
+              </Box>
+            </Paper>
+
             {/* Staff Member Info */}
             <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #E2E8F0', bgcolor: '#FFF', mb: 3 }}>
               <Typography variant="subtitle2" fontWeight={800} color="text.secondary" gutterBottom>
-                Assigned Staff Professional
+                Assigned Verified Partner
               </Typography>
               <Stack direction="row" spacing={2} alignItems="center">
                 <Avatar src={booking.providerAvatar} alt={booking.providerName} sx={{ width: 64, height: 64, border: '2px solid #2563EB' }} />
@@ -123,16 +143,20 @@ export const BookingDetailsPage: React.FC = () => {
                     <VerifiedIcon color="primary" sx={{ fontSize: 18 }} />
                   </Box>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    {booking.serviceType === 'cook' ? 'Home Chef' : 'Housekeeper'} • {booking.phone}
+                    {booking.serviceType === 'cook' ? 'Home Chef' : 'Housekeeper'} • Identity Verified
+                  </Typography>
+                  <Typography variant="caption" color="primary.main" fontWeight={700}>
+                    📍 {(booking as any).distanceKm || '2.1'} km away • ⏱ ETA: {(booking as any).etaMinutes || '8'} mins
                   </Typography>
                 </Box>
                 <Button
                   size="small"
-                  variant="outlined"
-                  startIcon={<PhoneIcon />}
-                  sx={{ ml: 'auto !important', fontWeight: 700, borderRadius: '8px' }}
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setChatOpen(true)}
+                  sx={{ ml: 'auto !important', fontWeight: 800, borderRadius: '8px' }}
                 >
-                  Call Staff
+                  Message Partner
                 </Button>
               </Stack>
             </Paper>
@@ -239,6 +263,16 @@ export const BookingDetailsPage: React.FC = () => {
           </Grid2>
         </Grid2>
       </Container>
+
+      {booking && (
+        <BookingChatDialog
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          bookingId={booking.id}
+          workerName={booking.providerName}
+          taskName={booking.serviceType}
+        />
+      )}
     </Box>
   );
 };

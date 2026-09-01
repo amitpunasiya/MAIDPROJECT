@@ -31,6 +31,7 @@ export const updateProviderProfileSchema = z.object({
 
 export const providerBookingQuerySchema = z.object({
   status: z.string().optional(),
+  serviceType: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(20),
   startDate: z.string().optional(),

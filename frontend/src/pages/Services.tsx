@@ -22,6 +22,7 @@ import { useAppSelector, useAppDispatch } from '../hooks/useAppStore';
 import {
   setSearchQuery,
   setCategory,
+  setHealthcareSubService,
   setMinRating,
   setPriceRange,
   setSortBy,
@@ -49,7 +50,7 @@ import {
   QuickBookingDialog,
 } from '../components';
 
-import { MOCK_COOKS, MOCK_MAIDS, MOCK_MAIN_SERVICES, IMainServiceCard } from '../services/mockData';
+import { MOCK_COOKS, MOCK_MAIDS, MOCK_HEALTHCARE_PROVIDERS, MOCK_MAIN_SERVICES, IMainServiceCard } from '../services/mockData';
 import { ICookProfile, IMaidProfile } from '../types';
 
 export const Services: React.FC = () => {
@@ -59,6 +60,7 @@ export const Services: React.FC = () => {
   const {
     searchQuery,
     category,
+    healthcareSubService,
     minRating,
     priceRange,
     sortBy,
@@ -111,6 +113,11 @@ export const Services: React.FC = () => {
 
     const cooks = MOCK_COOKS.map((c) => ({ ...c, itemType: 'cook' as const }));
     const maids = MOCK_MAIDS.map((m) => ({ ...m, itemType: 'maid' as const }));
+    const healthProviders = MOCK_HEALTHCARE_PROVIDERS.map((h) => ({
+      ...h,
+      itemType: 'maid' as const,
+      services: h.skills,
+    }));
     const mainCards = MOCK_MAIN_SERVICES.map((s) => ({ ...s, itemType: 'card' as const }));
 
     if (category === 'cook') return cooks;
@@ -121,8 +128,14 @@ export const Services: React.FC = () => {
     if (category === 'cleaning') {
       return maids.filter((m) => m.services.some((s) => s.toLowerCase().includes('clean') || s.toLowerCase().includes('deep')));
     }
-    return [...cooks, ...maids, ...mainCards];
-  }, [apiProviders, category]);
+    if (category === 'healthcare') {
+      if (healthcareSubService && healthcareSubService !== 'all') {
+        return healthProviders.filter((hp) => hp.subCategory === healthcareSubService);
+      }
+      return healthProviders;
+    }
+    return [...cooks, ...maids, ...healthProviders, ...mainCards];
+  }, [apiProviders, category, healthcareSubService]);
 
   // Filtered Data
   const filteredData = useMemo(() => {
@@ -145,12 +158,13 @@ export const Services: React.FC = () => {
         const nameMatch = provider.name.toLowerCase().includes(q);
         const bioMatch = provider.bio.toLowerCase().includes(q);
         const cityMatch = provider.city.toLowerCase().includes(q);
+        const qualMatch = 'qualification' in provider ? String((provider as any).qualification).toLowerCase().includes(q) : false;
         const skillMatch =
           'skills' in provider
             ? (provider as ICookProfile).skills?.some((s) => s.toLowerCase().includes(q))
             : (provider as IMaidProfile).services?.some((s) => s.toLowerCase().includes(q));
 
-        if (!nameMatch && !bioMatch && !cityMatch && !skillMatch) return false;
+        if (!nameMatch && !bioMatch && !cityMatch && !skillMatch && !qualMatch) return false;
       }
 
       if (minRating > 0 && provider.averageRating < minRating) return false;
@@ -242,7 +256,7 @@ export const Services: React.FC = () => {
                 value={searchQuery}
                 onChange={(val) => dispatch(setSearchQuery(val))}
                 onClear={() => dispatch(setSearchQuery(''))}
-                placeholder="Search by cook, maid, dish name, cleaning service..."
+                placeholder="Search by cook, maid, physiotherapy, occupational therapy, child care, adult care..."
               />
             </Box>
           </Box>
@@ -252,9 +266,72 @@ export const Services: React.FC = () => {
       {/* Main Catalog Content */}
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         {/* Category Tabs */}
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: 3 }}>
           <CategoryTabs activeCategory={category} onCategoryChange={(cat) => dispatch(setCategory(cat))} />
         </Box>
+
+        {/* Health Care Sub-Service Selection Bar */}
+        {category === 'healthcare' && (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              mb: 3,
+              borderRadius: 3.5,
+              border: '1px solid #93C5FD',
+              background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="subtitle1" fontWeight={800} color="#1E40AF">
+                🏥 Health Care Services & Professionals
+              </Typography>
+              <Chip label="Verified Home Visits & Consultations" color="primary" size="small" sx={{ fontWeight: 700 }} />
+            </Box>
+            <Stack direction="row" spacing={1.5} sx={{ overflowX: 'auto', pb: 0.5 }}>
+              <Chip
+                label="All Health Care"
+                clickable
+                color={healthcareSubService === 'all' ? 'primary' : 'default'}
+                variant={healthcareSubService === 'all' ? 'filled' : 'outlined'}
+                onClick={() => dispatch(setHealthcareSubService('all'))}
+                sx={{ fontWeight: 700, borderRadius: '10px', px: 1, py: 2 }}
+              />
+              <Chip
+                label="Physiotherapy"
+                clickable
+                color={healthcareSubService === 'physiotherapy' ? 'primary' : 'default'}
+                variant={healthcareSubService === 'physiotherapy' ? 'filled' : 'outlined'}
+                onClick={() => dispatch(setHealthcareSubService('physiotherapy'))}
+                sx={{ fontWeight: 700, borderRadius: '10px', px: 1, py: 2 }}
+              />
+              <Chip
+                label="Occupational Therapy"
+                clickable
+                color={healthcareSubService === 'occupational_therapy' ? 'primary' : 'default'}
+                variant={healthcareSubService === 'occupational_therapy' ? 'filled' : 'outlined'}
+                onClick={() => dispatch(setHealthcareSubService('occupational_therapy'))}
+                sx={{ fontWeight: 700, borderRadius: '10px', px: 1, py: 2 }}
+              />
+              <Chip
+                label="Child Care"
+                clickable
+                color={healthcareSubService === 'child_care' ? 'primary' : 'default'}
+                variant={healthcareSubService === 'child_care' ? 'filled' : 'outlined'}
+                onClick={() => dispatch(setHealthcareSubService('child_care'))}
+                sx={{ fontWeight: 700, borderRadius: '10px', px: 1, py: 2 }}
+              />
+              <Chip
+                label="Adult Care"
+                clickable
+                color={healthcareSubService === 'adult_care' ? 'primary' : 'default'}
+                variant={healthcareSubService === 'adult_care' ? 'filled' : 'outlined'}
+                onClick={() => dispatch(setHealthcareSubService('adult_care'))}
+                sx={{ fontWeight: 700, borderRadius: '10px', px: 1, py: 2 }}
+              />
+            </Stack>
+          </Paper>
+        )}
 
         {/* Toolbar Header */}
         <Paper
@@ -340,6 +417,8 @@ export const Services: React.FC = () => {
               <ServiceFilters
                 category={category}
                 onCategoryChange={(cat) => dispatch(setCategory(cat))}
+                healthcareSubService={healthcareSubService}
+                onHealthcareSubServiceChange={(sub) => dispatch(setHealthcareSubService(sub))}
                 minRating={minRating}
                 onMinRatingChange={(r) => dispatch(setMinRating(r))}
                 priceRange={priceRange}
@@ -411,6 +490,8 @@ export const Services: React.FC = () => {
         <ServiceFilters
           category={category}
           onCategoryChange={(cat) => dispatch(setCategory(cat))}
+          healthcareSubService={healthcareSubService}
+          onHealthcareSubServiceChange={(sub) => dispatch(setHealthcareSubService(sub))}
           minRating={minRating}
           onMinRatingChange={(r) => dispatch(setMinRating(r))}
           priceRange={priceRange}

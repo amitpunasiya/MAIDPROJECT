@@ -35,6 +35,12 @@ export interface IBankDetails {
 }
 
 export interface IProviderDocs {
+  countryCode?: string;
+  documentType?: 'aadhaar' | 'ssn_id' | 'passport' | 'drivers_license' | 'national_id';
+  documentNumberHash?: string;
+  maskedIdentityNumber?: string;
+  documentFrontDoc?: string;
+  documentBackDoc?: string;
   aadhaarNumber?: string;
   aadhaarDoc?: string;
   panNumber?: string;
@@ -67,19 +73,27 @@ export interface IProviderLocation {
 
 export interface IProvider {
   userId: Types.ObjectId;
-  providerType: 'cook' | 'maid' | 'babysitter' | 'eldercare' | 'cleaning' | 'other';
+  providerType: 'cook' | 'maid' | 'babysitter' | 'eldercare' | 'cleaning' | 'physiotherapist' | 'occupational_therapist' | 'other' | string;
   fullName: string;
   gender: 'male' | 'female' | 'other' | 'unspecified';
   dob?: Date;
   profilePhoto?: string;
+  qualification?: string;
+  specializations?: string[];
+  homeVisitAvailability?: boolean;
+  consultationFee?: number;
   experienceYears: number;
   languages: string[];
   skills: string[];
   bio?: string;
-  aadhaarVerificationStatus: 'pending' | 'verified' | 'rejected';
-  policeVerificationStatus: 'pending' | 'verified' | 'rejected';
-  verificationStatus: 'pending' | 'verified' | 'rejected';
-  kycStatus: 'unverified' | 'pending' | 'approved' | 'rejected' | 'suspended';
+  aadhaarVerificationStatus: 'pending' | 'verified' | 'rejected' | string;
+  policeVerificationStatus: 'pending' | 'verified' | 'rejected' | string;
+  verificationStatus: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PERMANENTLY_BLOCKED' | 'pending' | 'verified' | 'rejected' | string;
+  kycStatus: 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'RESUBMISSION_REQUESTED' | string;
+  kycRejectionReason?: string;
+  blockedAt?: Date;
+  blockedBy?: Types.ObjectId;
+  blockReason?: string;
   bankDetails?: IBankDetails;
   isAvailable: boolean;
   isFeatured: boolean;
@@ -96,6 +110,7 @@ export interface IProvider {
     coordinates: [number, number]; // [lng, lat]
   };
   services: IProviderServiceItem[];
+  serviceTypes?: string[];
   schedule: IDaySchedule[];
   holidaySupport: boolean;
   pricing: IProviderPricing;

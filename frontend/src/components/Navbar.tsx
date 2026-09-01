@@ -36,14 +36,14 @@ import { SearchableCitySelector } from './common/SearchableCitySelector';
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, currentMode, setMode, hasDualRoles, isProvider } = useAuth();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedCity, setSelectedCity] = useState<string>('Bengaluru');
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const [navSearchQuery, setNavSearchQuery] = useState<string>('');
 
-  const navLinks = [
+  const customerNavLinks = [
     { label: 'Home', path: '/home' },
     { label: 'Services', path: '/services' },
     { label: 'Categories', path: '/categories' },
@@ -53,6 +53,17 @@ export const Navbar: React.FC = () => {
     { label: 'Offers', path: '/offers' },
     { label: 'Support', path: '/support' },
   ];
+
+  const providerNavLinks = [
+    { label: 'Dashboard', path: '/provider/dashboard' },
+    { label: 'Requests', path: '/provider/requests' },
+    { label: 'My Bookings', path: '/provider/bookings' },
+    { label: 'Services & Pricing', path: '/provider/services' },
+    { label: 'Availability', path: '/provider/availability' },
+    { label: 'Earnings', path: '/provider/earnings' },
+  ];
+
+  const activeNavLinks = currentMode === 'PROVIDER' && isProvider ? providerNavLinks : customerNavLinks;
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -94,7 +105,7 @@ export const Navbar: React.FC = () => {
           {/* 1. Brand Logo */}
           <Box
             sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 1.5 }}
-            onClick={() => navigate('/home')}
+            onClick={() => navigate(currentMode === 'PROVIDER' ? '/provider/dashboard' : '/home')}
           >
             <Box
               sx={{
@@ -126,7 +137,7 @@ export const Navbar: React.FC = () => {
                 Maid & Cook
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.65rem', display: 'block', letterSpacing: '0.05em' }}>
-                HOME SERVICES
+                {currentMode === 'PROVIDER' ? 'PROVIDER DASHBOARD' : 'HOME SERVICES'}
               </Typography>
             </Box>
           </Box>
@@ -174,7 +185,7 @@ export const Navbar: React.FC = () => {
 
           {/* 4. Desktop Navigation Links */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
-            {navLinks.slice(0, 5).map((link) => {
+            {activeNavLinks.slice(0, 5).map((link) => {
               const isActive = location.pathname === link.path;
               return (
                 <Button
@@ -195,8 +206,61 @@ export const Navbar: React.FC = () => {
             })}
           </Box>
 
-          {/* 5. Theme Toggle & Auth Actions */}
+          {/* 5. Mode Switcher & Theme Toggle */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5 }}>
+            {hasDualRoles && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  bgcolor: 'action.hover',
+                  p: 0.4,
+                  borderRadius: '20px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Button
+                  size="small"
+                  variant={currentMode === 'CUSTOMER' ? 'contained' : 'text'}
+                  color="primary"
+                  onClick={() => {
+                    setMode('CUSTOMER');
+                    navigate('/home');
+                  }}
+                  sx={{
+                    borderRadius: '16px',
+                    px: 1.2,
+                    py: 0.3,
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    boxShadow: currentMode === 'CUSTOMER' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none',
+                  }}
+                >
+                  Customer Mode
+                </Button>
+                <Button
+                  size="small"
+                  variant={currentMode === 'PROVIDER' ? 'contained' : 'text'}
+                  color="secondary"
+                  onClick={() => {
+                    setMode('PROVIDER');
+                    navigate('/provider/dashboard');
+                  }}
+                  sx={{
+                    borderRadius: '16px',
+                    px: 1.2,
+                    py: 0.3,
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    boxShadow: currentMode === 'PROVIDER' ? '0 2px 8px rgba(13, 148, 136, 0.3)' : 'none',
+                  }}
+                >
+                  Provider Mode
+                </Button>
+              </Box>
+            )}
+
             <ThemeToggle />
 
             {isAuthenticated && user ? (
@@ -222,7 +286,7 @@ export const Navbar: React.FC = () => {
                     <Typography variant="body2" fontWeight={700} lineHeight={1.2}>
                       {user.name}
                     </Typography>
-                    <Chip label={user.role} size="small" color="primary" sx={{ height: 16, fontSize: '0.6rem', textTransform: 'capitalize', fontWeight: 700 }} />
+                    <Chip label={currentMode === 'PROVIDER' ? 'Provider' : user.role} size="small" color={currentMode === 'PROVIDER' ? 'secondary' : 'primary'} sx={{ height: 16, fontSize: '0.6rem', textTransform: 'capitalize', fontWeight: 700 }} />
                   </Box>
                   <KeyboardArrowDownIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                 </Box>
@@ -318,7 +382,7 @@ export const Navbar: React.FC = () => {
           <Divider sx={{ my: 1 }} />
 
           <List sx={{ py: 0 }}>
-            {navLinks.map((link) => (
+            {activeNavLinks.map((link) => (
               <ListItem key={link.label} disablePadding>
                 <ListItemButton
                   onClick={() => {

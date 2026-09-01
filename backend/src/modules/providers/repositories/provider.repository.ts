@@ -38,7 +38,12 @@ export class ProviderRepository extends BaseRepository<IProviderDocument> {
     }
 
     if (filter.providerType) {
-      query.providerType = filter.providerType;
+      const pType = filter.providerType.toLowerCase();
+      query.$or = [
+        { providerType: pType },
+        { serviceTypes: pType },
+        { 'services.category': new RegExp(pType, 'i') },
+      ];
     }
 
     if (filter.gender && filter.gender !== 'unspecified') {
@@ -69,6 +74,10 @@ export class ProviderRepository extends BaseRepository<IProviderDocument> {
 
     if (filter.isAvailable !== undefined) {
       query.isAvailable = filter.isAvailable;
+      if (filter.isAvailable === true) {
+        query.verificationStatus = { $in: ['APPROVED', 'verified', 'approved'] };
+        query.kycStatus = { $in: ['VERIFIED', 'approved', 'verified'] };
+      }
     }
 
     if (filter.search) {
@@ -111,12 +120,19 @@ export class ProviderRepository extends BaseRepository<IProviderDocument> {
     };
 
     if (filter.providerType) {
-      query.providerType = filter.providerType;
+      const pType = filter.providerType.toLowerCase();
+      query.$or = [
+        { providerType: pType },
+        { serviceTypes: pType },
+        { 'services.category': new RegExp(pType, 'i') },
+      ];
     }
 
     if (filter.isAvailable !== undefined) {
       query.isAvailable = filter.isAvailable;
     }
+    query.verificationStatus = { $in: ['APPROVED', 'verified', 'approved'] };
+    query.kycStatus = { $in: ['VERIFIED', 'approved', 'verified'] };
 
     return this.model
       .find(query)
@@ -126,7 +142,12 @@ export class ProviderRepository extends BaseRepository<IProviderDocument> {
 
   async findTopRated(limit = 10): Promise<IProviderDocument[]> {
     return this.model
-      .find({ isDeleted: { $ne: true }, isAvailable: true })
+      .find({
+        isDeleted: { $ne: true },
+        isAvailable: true,
+        verificationStatus: { $in: ['APPROVED', 'verified', 'approved'] },
+        kycStatus: { $in: ['VERIFIED', 'approved', 'verified'] },
+      })
       .sort({ averageRating: -1, totalRatings: -1 })
       .limit(limit)
       .populate('userId', 'name email phone avatar');
@@ -140,15 +161,19 @@ export class ProviderRepository extends BaseRepository<IProviderDocument> {
     suspendedProviders: number;
     cooksCount: number;
     maidsCount: number;
+    physiotherapistsCount: number;
+    occupationalTherapistsCount: number;
   }> {
-    const [total, verified, pending, rejected, suspended, cooks, maids] = await Promise.all([
+    const [total, verified, pending, rejected, suspended, cooks, maids, physio, ot] = await Promise.all([
       this.model.countDocuments({ isDeleted: { $ne: true } }),
-      this.model.countDocuments({ isDeleted: { $ne: true }, verificationStatus: 'verified' }),
-      this.model.countDocuments({ isDeleted: { $ne: true }, verificationStatus: 'pending' }),
-      this.model.countDocuments({ isDeleted: { $ne: true }, verificationStatus: 'rejected' }),
+      this.model.countDocuments({ isDeleted: { $ne: true }, verificationStatus: { $in: ['APPROVED', 'verified'] } }),
+      this.model.countDocuments({ isDeleted: { $ne: true }, kycStatus: 'PENDING' }),
+      this.model.countDocuments({ isDeleted: { $ne: true }, kycStatus: 'REJECTED' }),
       this.model.countDocuments({ isDeleted: { $ne: true }, kycStatus: 'suspended' }),
       this.model.countDocuments({ isDeleted: { $ne: true }, providerType: 'cook' }),
       this.model.countDocuments({ isDeleted: { $ne: true }, providerType: 'maid' }),
+      this.model.countDocuments({ isDeleted: { $ne: true }, providerType: 'physiotherapist' }),
+      this.model.countDocuments({ isDeleted: { $ne: true }, providerType: 'occupational_therapist' }),
     ]);
 
     return {
@@ -159,6 +184,8 @@ export class ProviderRepository extends BaseRepository<IProviderDocument> {
       suspendedProviders: suspended,
       cooksCount: cooks,
       maidsCount: maids,
+      physiotherapistsCount: physio,
+      occupationalTherapistsCount: ot,
     };
   }
 

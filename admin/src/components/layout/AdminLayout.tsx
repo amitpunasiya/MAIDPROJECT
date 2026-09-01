@@ -27,6 +27,7 @@ import {
   Engineering as ProviderIcon,
   Bookmark as BookingIcon,
   HomeRepairService as ServiceIcon,
+  MedicalServices as MedicalServicesIcon,
   LocationCity as LocationIcon,
   ConfirmationNumber as CouponIcon,
   Notifications as NotificationIcon,
@@ -44,6 +45,7 @@ const navItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { text: 'Users', icon: <PeopleIcon />, path: '/users' },
   { text: 'Providers', icon: <ProviderIcon />, path: '/providers' },
+  { text: 'Healthcare Professionals', icon: <MedicalServicesIcon />, path: '/healthcare' },
   { text: 'Bookings', icon: <BookingIcon />, path: '/bookings' },
   { text: 'Services', icon: <ServiceIcon />, path: '/services' },
   { text: 'Locations', icon: <LocationIcon />, path: '/locations' },
@@ -194,7 +196,15 @@ export const AdminLayout: React.FC = () => {
               Audit Logs
             </MenuItem>
             <Divider />
-            <MenuItem onClick={handleMenuClose}>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('adminUser');
+                navigate('/login', { replace: true });
+              }}
+            >
               <ListItemIcon><AccountCircle fontSize="small" /></ListItemIcon>
               Logout Admin
             </MenuItem>

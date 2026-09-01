@@ -4,6 +4,7 @@ import RestaurantIcon from '@mui/icons-material/Restaurant';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import AppsIcon from '@mui/icons-material/Apps';
 import { ServiceCategory } from '../../store/serviceSlice';
 
@@ -26,6 +27,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
     { label: 'House Maids', value: 'maid', icon: <CleaningServicesIcon fontSize="small" /> },
     { label: 'Cook + Maid Combo', value: 'combo', icon: <HandshakeIcon fontSize="small" /> },
     { label: 'Deep Cleaning', value: 'cleaning', icon: <AutoAwesomeIcon fontSize="small" /> },
+    { label: 'Health Care', value: 'healthcare', icon: <MedicalServicesIcon fontSize="small" /> },
   ];
 
   return (

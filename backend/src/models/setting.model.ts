@@ -1,15 +1,13 @@
 import { Schema, model, type Document, type Types } from 'mongoose';
-import { softDeleteFields, type ISoftDelete } from './common/softDelete.js';
 
 export interface ISetting {
-  category: 'global' | 'city' | 'provider' | 'booking' | 'pricing' | 'notification';
   key: string;
   value: any;
   description?: string;
-  isPublic: boolean;
+  updatedBy?: Types.ObjectId;
 }
 
-export interface ISettingDocument extends ISetting, ISoftDelete, Document {
+export interface ISettingDocument extends ISetting, Document {
   _id: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -17,12 +15,6 @@ export interface ISettingDocument extends ISetting, ISoftDelete, Document {
 
 const settingSchema = new Schema<ISettingDocument>(
   {
-    category: {
-      type: String,
-      enum: ['global', 'city', 'provider', 'booking', 'pricing', 'notification'],
-      required: true,
-      index: true,
-    },
     key: {
       type: String,
       required: true,
@@ -37,16 +29,26 @@ const settingSchema = new Schema<ISettingDocument>(
     description: {
       type: String,
       trim: true,
+      default: '',
     },
-    isPublic: {
-      type: Boolean,
-      default: false,
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
     },
-    ...softDeleteFields,
   },
   { timestamps: true },
 );
 
-settingSchema.index({ category: 1, key: 1 });
-
 export const Setting = model<ISettingDocument>('Setting', settingSchema);
+
+export async function getSettingValue<T>(key: string, defaultValue: T): Promise<T> {
+  try {
+    const doc = await Setting.findOne({ key });
+    if (doc && doc.value !== undefined) {
+      return doc.value as T;
+    }
+  } catch {
+    // Return default on error
+  }
+  return defaultValue;
+}

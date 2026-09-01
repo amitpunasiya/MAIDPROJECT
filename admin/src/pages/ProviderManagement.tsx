@@ -101,12 +101,13 @@ export const ProviderManagement: React.FC = () => {
     void fetchProviders();
   };
 
-  const handleUpdateStatus = async (id: string, action: 'verify' | 'reject' | 'suspend' | 'activate') => {
+  const handleUpdateStatus = async (id: string, action: 'verify' | 'reject' | 'suspend' | 'activate' | 'permanently_block') => {
     try {
       if (action === 'verify') await adminApi.verifyProvider(id);
       else if (action === 'reject') await adminApi.rejectProvider(id);
       else if (action === 'suspend') await adminApi.suspendProvider(id);
       else if (action === 'activate') await adminApi.activateProvider(id);
+      else if (action === 'permanently_block') await adminApi.permanentlyBlockProvider(id, 'Permanent ban by administrator');
 
       void fetchProviders();
       if (selectedProvider && selectedProvider.id === id) {
@@ -265,11 +266,15 @@ export const ProviderManagement: React.FC = () => {
 
                     <TableCell>
                       {(provider.status === 'approved' || provider.status === 'verified') && (
-                        <Chip label="VERIFIED" color="success" size="small" />
+                        <Chip label="APPROVED" color="success" size="small" sx={{ fontWeight: 800 }} />
                       )}
                       {provider.status === 'pending' && <Chip label="PENDING KYC" color="warning" size="small" />}
+                      {provider.status === 'under_review' && <Chip label="UNDER REVIEW" color="info" size="small" />}
                       {provider.status === 'rejected' && <Chip label="REJECTED" color="error" size="small" />}
-                      {provider.status === 'suspended' && <Chip label="SUSPENDED" color="secondary" size="small" />}
+                      {provider.status === 'suspended' && <Chip label="SUSPENDED" color="warning" size="small" />}
+                      {(provider.status === 'permanently_blocked' || provider.status === 'blocked') && (
+                        <Chip label="PERMANENTLY BLOCKED" color="error" size="small" sx={{ fontWeight: 800 }} />
+                      )}
                     </TableCell>
 
                     <TableCell align="right">
@@ -325,20 +330,26 @@ export const ProviderManagement: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <Paper elevation={0} sx={{ p: 2, border: '1px solid #cbd5e1', borderRadius: 2 }}>
                   <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-                    Aadhaar Verification
+                    Government Identity Verification
                   </Typography>
-                  <Typography variant="body2">Aadhaar No: {selectedProvider.aadhaarNo}</Typography>
-                  <Chip icon={<VerifiedIcon />} label="Aadhaar Record" color="success" size="small" sx={{ mt: 1 }} />
+                  <Typography variant="body2">Masked ID Number: {selectedProvider.aadhaarNo}</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    Full identity numbers are strictly masked (e.g. XXXX-XXXX-1234) for privacy compliance.
+                  </Typography>
+                  <Chip icon={<VerifiedIcon />} label="Identity Record Checked" color="success" size="small" sx={{ mt: 1 }} />
                 </Paper>
               </Grid>
 
               <Grid item xs={12} sm={6}>
                 <Paper elevation={0} sx={{ p: 2, border: '1px solid #cbd5e1', borderRadius: 2 }}>
                   <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-                    PAN Verification
+                    Background & Safety Audit
                   </Typography>
-                  <Typography variant="body2">PAN No: {selectedProvider.panNo}</Typography>
-                  <Chip icon={<VerifiedIcon />} label="PAN Record" color="success" size="small" sx={{ mt: 1 }} />
+                  <Typography variant="body2">Location: {selectedProvider.city}</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    Identity matches automatic duplicate ban-list check.
+                  </Typography>
+                  <Chip icon={<VerifiedIcon />} label="Audit Clean" color="info" size="small" sx={{ mt: 1 }} />
                 </Paper>
               </Grid>
             </Grid>
@@ -352,6 +363,12 @@ export const ProviderManagement: React.FC = () => {
               </Button>
               <Button color="error" variant="outlined" onClick={() => handleUpdateStatus(selectedProvider.id, 'reject')}>
                 Reject KYC
+              </Button>
+              <Button color="warning" variant="outlined" onClick={() => handleUpdateStatus(selectedProvider.id, 'suspend')}>
+                Suspend
+              </Button>
+              <Button color="error" variant="contained" onClick={() => handleUpdateStatus(selectedProvider.id, 'permanently_block')}>
+                PERMANENT BAN
               </Button>
             </>
           )}

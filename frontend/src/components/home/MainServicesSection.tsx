@@ -37,10 +37,10 @@ export const MainServicesSection: React.FC<MainServicesSectionProps> = ({ onBook
           </Typography>
         </Box>
 
-        {/* 3 Main Cards Grid */}
-        <Grid2 container spacing={4}>
+        {/* Main Service Cards Grid */}
+        <Grid2 container spacing={3.5}>
           {MOCK_MAIN_SERVICES.map((service) => (
-            <Grid2 key={service.id} size={{ xs: 12, md: 4 }}>
+            <Grid2 key={service.id} size={{ xs: 12, sm: 6, md: 4 }}>
               <Paper
                 elevation={0}
                 sx={{

@@ -58,11 +58,15 @@ export const providerDocsSchema = z.object({
 
 export const createProviderSchema = z.object({
   userId: z.string().trim().optional(),
-  providerType: z.enum(['cook', 'maid', 'babysitter', 'eldercare', 'cleaning', 'other']).default('cook'),
+  providerType: z.enum(['cook', 'maid', 'babysitter', 'eldercare', 'cleaning', 'physiotherapist', 'occupational_therapist', 'other']).default('cook'),
   fullName: z.string().trim().min(2, 'Full name must be at least 2 characters').max(100),
   gender: z.enum(['male', 'female', 'other', 'unspecified']).optional().default('unspecified'),
   dob: z.string().or(z.date()).optional(),
   profilePhoto: z.string().trim().optional().default(''),
+  qualification: z.string().trim().optional().default(''),
+  specializations: z.array(z.string().trim()).optional().default([]),
+  homeVisitAvailability: z.boolean().optional().default(true),
+  consultationFee: z.number().min(0).optional().default(500),
   experienceYears: z.number().min(0).max(60).optional().default(0),
   languages: z.array(z.string().trim()).optional().default([]),
   skills: z.array(z.string().trim()).optional().default([]),
@@ -74,10 +78,24 @@ export const createProviderSchema = z.object({
   pricing: providerPricingSchema.optional(),
   documents: providerDocsSchema.optional(),
   bankDetails: bankDetailsSchema.optional(),
-  kycStatus: z.enum(['unverified', 'pending', 'approved', 'rejected', 'suspended']).optional().default('unverified'),
+  kycStatus: z.enum(['NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED', 'RESUBMISSION_REQUESTED', 'unverified', 'pending', 'approved', 'rejected', 'suspended']).optional().default('NOT_SUBMITTED'),
 });
 
 export const updateProviderSchema = createProviderSchema.partial();
+
+export const submitKycSchema = z.object({
+  aadhaarNumber: z.string().trim().min(12, 'Aadhaar number must be 12 digits').max(14),
+  aadhaarDoc: z.string().trim().min(1, 'Aadhaar document image/PDF is required'),
+  panNumber: z.string().trim().min(10, 'PAN number must be 10 characters').max(10),
+  panDoc: z.string().trim().min(1, 'PAN document image/PDF is required'),
+  qualification: z.string().trim().optional(),
+  specializations: z.array(z.string().trim()).optional(),
+});
+
+export const verifyKycSchema = z.object({
+  action: z.enum(['approve', 'reject', 'request_resubmission']),
+  rejectionReason: z.string().trim().optional(),
+});
 
 export const providerQuerySchema = z.object({
   city: z.string().optional(),

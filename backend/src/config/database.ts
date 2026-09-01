@@ -17,10 +17,14 @@ try {
 applySlowQueryLogging(env.SLOW_QUERY_THRESHOLD_MS);
 
 const connectionOptions: mongoose.ConnectOptions = {
-  maxPoolSize: 10,
-  minPoolSize: 2,
+  maxPoolSize: 100, // Scaled for high-concurrency enterprise workloads
+  minPoolSize: 10,
   serverSelectionTimeoutMS: 10_000,
   socketTimeoutMS: 45_000,
+};
+
+const sanitizeMongoUri = (uri: string): string => {
+  return uri.replace(/\/\/(.*):(.*)@/, '//***:***@');
 };
 
 export const connectDatabase = async (): Promise<void> => {
@@ -38,20 +42,29 @@ export const connectDatabase = async (): Promise<void> => {
 
   try {
     await mongoose.connect(env.MONGODB_URI, connectionOptions);
+    const { ensureAdminExists } = await import('../jobs/seedAdminHelper.js');
+    await ensureAdminExists();
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : String(error);
-    logger.warn(`Failed to connect to primary MONGODB_URI (${env.MONGODB_URI}): ${errMessage}`);
+    logger.warn(`Failed to connect to primary MONGODB_URI (${sanitizeMongoUri(env.MONGODB_URI)}): ${errMessage}`);
 
     if (env.NODE_ENV === 'development') {
       try {
-        logger.info('Attempting auto-fallback using in-memory MongoDB for local development...');
+        const path = await import('path');
+        const fs = await import('fs');
+        const tempDbPath = path.resolve(process.cwd(), '.mongo_temp', `run_${Date.now()}`);
+        if (!fs.existsSync(tempDbPath)) {
+          fs.mkdirSync(tempDbPath, { recursive: true });
+        }
         const { MongoMemoryServer } = await import('mongodb-memory-server');
         const mongoServer = await MongoMemoryServer.create({
-          instance: { dbName: 'maid_cook_db' }
+          instance: { dbName: 'maid_cook_db', dbPath: tempDbPath },
         });
         const memoryUri = mongoServer.getUri();
         await mongoose.connect(memoryUri, connectionOptions);
         logger.info(`Connected to In-Memory MongoDB successfully at ${memoryUri}`);
+        const { ensureAdminExists } = await import('../jobs/seedAdminHelper.js');
+        await ensureAdminExists();
         return;
       } catch (memErr) {
         logger.error('In-memory MongoDB fallback failed or module missing', {

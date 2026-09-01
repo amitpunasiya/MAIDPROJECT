@@ -23,6 +23,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('adminUser');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    } else if (error.response?.status === 429) {
+      error.message = error.response?.data?.message || 'Too many requests. Please wait a moment before trying again.';
+    } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      error.message = 'Unable to connect to backend server (http://localhost:5000). Please ensure backend process is running.';
+    }
     return Promise.reject(error);
   },
 );

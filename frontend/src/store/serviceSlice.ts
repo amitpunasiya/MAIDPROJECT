@@ -8,7 +8,8 @@ import {
   ProviderQueryFilterParams,
 } from '../services/api';
 
-export type ServiceCategory = 'all' | 'cook' | 'maid' | 'combo' | 'cleaning';
+export type ServiceCategory = 'all' | 'cook' | 'maid' | 'combo' | 'cleaning' | 'healthcare';
+export type HealthcareSubService = 'all' | 'physiotherapy' | 'occupational_therapy' | 'child_care' | 'adult_care';
 export type SortOption = 'popular' | 'rating' | 'price_low' | 'price_high' | 'experience';
 export type ViewMode = 'grid' | 'list';
 
@@ -16,6 +17,7 @@ export interface ServiceState {
   // Filter UI State
   searchQuery: string;
   category: ServiceCategory;
+  healthcareSubService: HealthcareSubService;
   minRating: number;
   priceRange: [number, number];
   sortBy: SortOption;
@@ -46,6 +48,7 @@ export interface ServiceState {
 const initialState: ServiceState = {
   searchQuery: '',
   category: 'all',
+  healthcareSubService: 'all',
   minRating: 0,
   priceRange: [150, 1000],
   sortBy: 'popular',
@@ -179,6 +182,10 @@ const serviceSlice = createSlice({
     },
     setCategory: (state, action: PayloadAction<ServiceCategory>) => {
       state.category = action.payload;
+      state.currentPage = 1;
+    },
+    setHealthcareSubService: (state, action: PayloadAction<HealthcareSubService>) => {
+      state.healthcareSubService = action.payload;
       state.currentPage = 1;
     },
     setMinRating: (state, action: PayloadAction<number>) => {
@@ -320,6 +327,7 @@ const serviceSlice = createSlice({
 export const {
   setSearchQuery,
   setCategory,
+  setHealthcareSubService,
   setMinRating,
   setPriceRange,
   setSortBy,

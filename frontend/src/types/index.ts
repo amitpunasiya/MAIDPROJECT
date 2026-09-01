@@ -2,6 +2,11 @@ export enum UserRole {
   CUSTOMER = 'customer',
   COOK = 'cook',
   MAID = 'maid',
+  PROVIDER = 'provider',
+  PHYSIOTHERAPIST = 'physiotherapist',
+  OCCUPATIONAL_THERAPIST = 'occupational_therapist',
+  CHILD_CARE_PROVIDER = 'child_care_provider',
+  ADULT_CARE_PROVIDER = 'adult_care_provider',
   ADMIN = 'admin',
 }
 
@@ -9,6 +14,16 @@ export enum ServiceType {
   COOK = 'cook',
   MAID = 'maid',
   BOTH = 'both',
+  BABYSITTER = 'babysitter',
+  CLEANER = 'cleaner',
+  ELDER_CARE = 'eldercare',
+  LAUNDRY = 'laundry',
+  DRIVER = 'driver',
+  PHYSIOTHERAPY = 'physiotherapy',
+  OCCUPATIONAL_THERAPY = 'occupational_therapy',
+  CHILD_CARE = 'child_care',
+  ADULT_CARE = 'adult_care',
+  OTHER = 'other',
 }
 
 export enum BookingStatus {
@@ -26,6 +41,7 @@ export interface IUser {
   email: string;
   phone: string;
   role: UserRole;
+  roles?: UserRole[];
   avatar?: string;
   city?: string;
 }

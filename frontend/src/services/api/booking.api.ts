@@ -147,6 +147,33 @@ export const bookingApi = {
   cancelRecurringBooking(id: string): Promise<ApiResponse<any>> {
     return patch<any>(`/bookings/recurring/${id}`, { status: 'cancelled' });
   },
+
+  /**
+   * Start OTP & Live Tracking Lifecycle Methods
+   */
+  getStartOtp(id: string): Promise<ApiResponse<{ otp: string; expiresAt?: string }>> {
+    return get<{ otp: string; expiresAt?: string }>(`/bookings/${id}/otp`);
+  },
+
+  markOnTheWay(id: string): Promise<ApiResponse<IBooking>> {
+    return patch<IBooking>(`/bookings/${id}/on-the-way`, {});
+  },
+
+  markArrived(id: string): Promise<ApiResponse<IBooking>> {
+    return patch<IBooking>(`/bookings/${id}/arrived`, {});
+  },
+
+  updateLocation(id: string, latitude: number, longitude: number): Promise<ApiResponse<IBooking>> {
+    return patch<IBooking>(`/bookings/${id}/location`, { latitude, longitude });
+  },
+
+  verifyStartOtp(id: string, otp: string): Promise<ApiResponse<IBooking>> {
+    return post<IBooking>(`/bookings/${id}/verify-start-otp`, { otp });
+  },
+
+  markComplete(id: string): Promise<ApiResponse<IBooking>> {
+    return patch<IBooking>(`/bookings/${id}/complete`, {});
+  },
 };
 
 export default bookingApi;

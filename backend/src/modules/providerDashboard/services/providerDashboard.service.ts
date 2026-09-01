@@ -162,10 +162,18 @@ export class ProviderDashboardService {
 
   async getBookings(userId: string, query: ProviderBookingQueryInput) {
     const provider = await this.getOrCreateProvider(userId);
-    const filter: any = { cookId: provider._id, isDeleted: { $ne: true } };
+    const userObjectId = new Types.ObjectId(userId);
+    const filter: any = {
+      $or: [{ cookId: provider._id }, { cookId: userObjectId }],
+      isDeleted: { $ne: true },
+    };
 
     if (query.status) {
       filter.status = query.status;
+    }
+
+    if (query.serviceType) {
+      filter.serviceType = query.serviceType.toLowerCase();
     }
 
     if (query.startDate || query.endDate) {

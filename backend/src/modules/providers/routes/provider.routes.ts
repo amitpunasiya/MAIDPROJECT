@@ -25,14 +25,19 @@ router.get('/nearby', validate(providerNearbyQuerySchema, 'query'), providerCont
 router.get('/', validate(providerQuerySchema, 'query'), providerController.getProviders);
 router.get('/:id', providerController.getProviderById);
 
-// Admin Status Management Endpoints
+// Admin Status Management & Healthcare KYC Endpoints
 router.patch('/:id/verify', authenticate, requireAdmin, providerController.verifyProvider);
 router.patch('/:id/suspend', authenticate, requireAdmin, providerController.suspendProvider);
 router.patch('/:id/activate', authenticate, requireAdmin, providerController.activateProvider);
 router.patch('/:id/reject', authenticate, requireAdmin, providerController.rejectProvider);
+router.patch('/:id/block', authenticate, requireAdmin, providerController.permanentlyBlockProvider);
+router.get('/admin/kyc/:providerId', authenticate, requireAdmin, providerController.getKycDetailsForAdmin);
+router.patch('/admin/kyc/:providerId/verify', authenticate, requireAdmin, providerController.verifyHealthcareKyc);
 
 // Authenticated Provider Endpoints (Self or Admin)
 router.post('/', authenticate, validate(createProviderSchema), providerController.createProvider);
+router.post('/kyc', authenticate, providerController.submitKycDocument);
+router.post('/kyc/submit', authenticate, providerController.submitKycDocument);
 
 // Availability & Skills Endpoints
 router.patch('/skills', authenticate, providerController.updateSkills);

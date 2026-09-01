@@ -2,16 +2,109 @@ export enum ServiceType {
   COOK = 'cook',
   MAID = 'maid',
   BOTH = 'both',
+  BABYSITTER = 'babysitter',
+  CLEANER = 'cleaner',
+  ELDER_CARE = 'eldercare',
+  LAUNDRY = 'laundry',
+  DRIVER = 'driver',
+  PHYSIOTHERAPY = 'physiotherapy',
+  OCCUPATIONAL_THERAPIST = 'occupational_therapy',
+  OCCUPATIONAL_THERAPY = 'occupational_therapy',
+  CHILD_CARE = 'child_care',
+  ADULT_CARE = 'adult_care',
+  OTHER = 'other',
 }
+
+export enum ServiceCategory {
+  COOK = 'COOK',
+  MAID = 'MAID',
+  BABYSITTER = 'BABYSITTER',
+  HOUSEHOLD_TASK = 'HOUSEHOLD_TASK',
+  HEALTHCARE = 'HEALTHCARE',
+  PHYSIOTHERAPY = 'PHYSIOTHERAPY',
+  OCCUPATIONAL_THERAPIST = 'OCCUPATIONAL_THERAPY',
+  OCCUPATIONAL_THERAPY = 'OCCUPATIONAL_THERAPY',
+  CHILD_CARE = 'CHILD_CARE',
+  ADULT_CARE = 'ADULT_CARE',
+}
+
+export enum KYCStatus {
+  NOT_SUBMITTED = 'NOT_SUBMITTED',
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  REJECTED = 'REJECTED',
+  RESUBMISSION_REQUESTED = 'RESUBMISSION_REQUESTED',
+}
+
+export const PHYSIOTHERAPY_SPECIALIZATIONS = [
+  'Physiotherapy',
+  'Home Physiotherapy',
+  'Post-operative rehabilitation',
+  'Orthopedic rehabilitation',
+  'Sports rehabilitation',
+  'Neurological rehabilitation',
+  'Geriatric rehabilitation',
+  'Pediatric physiotherapy',
+  'Pain Management',
+  'Mobility & Strength Training',
+  'Other specializations',
+];
+
+export const OCCUPATIONAL_THERAPIST_SPECIALIZATIONS = [
+  'Occupational Therapy',
+  'Pediatric occupational therapy',
+  'Neurological occupational therapy',
+  'Activities of daily living training',
+  'Functional rehabilitation',
+  'Fine motor skills',
+  'Sensory integration',
+  'Cognitive rehabilitation',
+  'Hand Therapy',
+  'Developmental Therapy',
+  'Other specializations',
+];
+
+export const OCCUPATIONAL_THERAPY_SPECIALIZATIONS = OCCUPATIONAL_THERAPIST_SPECIALIZATIONS;
+
+export const CHILD_CARE_SPECIALIZATIONS = [
+  'Child Care',
+  'Infant Care',
+  'Baby Care',
+  'Toddler Care',
+  'Child Supervision',
+  'Child Safety & Assistance',
+  'School-age Child Care',
+  'Special Needs Child Care',
+  'Day Care / Home Child Care',
+  'Other specializations',
+];
+
+export const ADULT_CARE_SPECIALIZATIONS = [
+  'Adult Care',
+  'Elderly Care',
+  'Senior Citizen Assistance',
+  'Daily Living Assistance',
+  'Personal Care Assistance',
+  'Mobility Assistance',
+  'Companionship',
+  'Home Support',
+  'Post-Hospital Care Support',
+  'Other specializations',
+];
 
 export enum BookingStatus {
   PENDING = 'pending',
+  PENDING_PAYMENT = 'pending_payment',
+  PAYMENT_CONFIRMED = 'payment_confirmed',
   ASSIGNED = 'assigned',
+  PROVIDER_ASSIGNED = 'provider_assigned',
   CONFIRMED = 'confirmed',
   ACCEPTED = 'accepted',
+  PROVIDER_ACCEPTED = 'provider_accepted',
   REJECTED = 'rejected',
   ON_THE_WAY = 'on_the_way',
   ARRIVED = 'arrived',
+  OTP_VERIFICATION_PENDING = 'otp_verification_pending',
   STARTED = 'started',
   WORK_STARTED = 'work_started',
   WORK_COMPLETED = 'work_completed',

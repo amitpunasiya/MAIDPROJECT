@@ -15,11 +15,13 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
-import { ServiceCategory, SortOption } from '../../store/serviceSlice';
+import { ServiceCategory, HealthcareSubService, SortOption } from '../../store/serviceSlice';
 
 interface ServiceFiltersProps {
   category?: ServiceCategory;
   onCategoryChange?: (category: ServiceCategory) => void;
+  healthcareSubService?: HealthcareSubService;
+  onHealthcareSubServiceChange?: (sub: HealthcareSubService) => void;
   minRating: number;
   onRatingChange?: (val: number) => void;
   onMinRatingChange?: (val: number) => void;
@@ -39,6 +41,8 @@ interface ServiceFiltersProps {
 export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
   category,
   onCategoryChange,
+  healthcareSubService,
+  onHealthcareSubServiceChange,
   minRating,
   onRatingChange,
   onMinRatingChange,
@@ -92,6 +96,29 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
               <FormControlLabel value="maid" control={<Radio size="small" />} label="House Maids" />
               <FormControlLabel value="combo" control={<Radio size="small" />} label="Cook + Maid Combo" />
               <FormControlLabel value="cleaning" control={<Radio size="small" />} label="Deep Cleaning" />
+              <FormControlLabel value="healthcare" control={<Radio size="small" />} label="Health Care" />
+            </RadioGroup>
+          </FormControl>
+          <Divider sx={{ my: 2.5 }} />
+        </Box>
+      )}
+
+      {/* Health Care Sub-Service Specific Radio Filter */}
+      {category === 'healthcare' && onHealthcareSubServiceChange && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={800} color="primary.main" gutterBottom>
+            Health Care Service Type
+          </Typography>
+          <FormControl component="fieldset">
+            <RadioGroup
+              value={healthcareSubService || 'all'}
+              onChange={(e) => onHealthcareSubServiceChange(e.target.value as HealthcareSubService)}
+            >
+              <FormControlLabel value="all" control={<Radio size="small" />} label="All Health Care" />
+              <FormControlLabel value="physiotherapy" control={<Radio size="small" />} label="Physiotherapy" />
+              <FormControlLabel value="occupational_therapy" control={<Radio size="small" />} label="Occupational Therapy" />
+              <FormControlLabel value="child_care" control={<Radio size="small" />} label="Child Care" />
+              <FormControlLabel value="adult_care" control={<Radio size="small" />} label="Adult Care" />
             </RadioGroup>
           </FormControl>
           <Divider sx={{ my: 2.5 }} />

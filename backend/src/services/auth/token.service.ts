@@ -11,6 +11,7 @@ interface CreateTokenPairParams {
   userId: string;
   email: string;
   role: UserRole;
+  roles?: UserRole[];
   userAgent?: string;
   ipAddress?: string;
 }
@@ -49,9 +50,9 @@ export class TokenService {
   }
 
   async createTokenPair(params: CreateTokenPairParams): Promise<TokenPair> {
-    const { userId, email, role, userAgent, ipAddress } = params;
+    const { userId, email, role, roles, userAgent, ipAddress } = params;
 
-    const accessToken = this.generateAccessToken({ sub: userId, email, role });
+    const accessToken = this.generateAccessToken({ sub: userId, email, role, roles });
     const jti = generateSecureToken();
     const refreshToken = this.generateRefreshToken(userId, jti);
 
@@ -100,6 +101,7 @@ export class TokenService {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
+      roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
       userAgent,
       ipAddress,
     });

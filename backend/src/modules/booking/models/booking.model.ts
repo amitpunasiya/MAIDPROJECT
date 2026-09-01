@@ -29,12 +29,15 @@ export interface IBooking {
   couponId?: Types.ObjectId;
   paymentId?: Types.ObjectId;
   serviceType: ServiceType;
+  serviceCategory?: string;
   status: BookingStatus;
   scheduledDate: Date;
   startTime: string;
   endTime: string;
   durationHours: number;
   slotType?: 'PREDEFINED' | 'CUSTOM';
+  providerSelectionMode?: 'SPECIFIC' | 'AUTO_MATCH';
+  requestStatus?: 'PENDING_PROVIDER_ACCEPTANCE' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
   serviceAddress: IAddress;
   pricing: IBookingPricing;
   categoryId?: Types.ObjectId;
@@ -50,6 +53,19 @@ export interface IBooking {
   cancelledBy?: Types.ObjectId;
   startedAt?: Date;
   completedAt?: Date;
+  acceptedAt?: Date;
+  onTheWayAt?: Date;
+  arrivedAt?: Date;
+  startOtpHash?: string;
+  startOtpRaw?: string;
+  startOtpExpiresAt?: Date;
+  startOtpAttempts?: number;
+  otpVerifiedAt?: Date;
+  lastProviderLatitude?: number;
+  lastProviderLongitude?: number;
+  lastProviderLocationAt?: Date;
+  distanceKm?: number;
+  etaMinutes?: number;
   timeline?: IBookingTimelineItem[];
 }
 
@@ -117,6 +133,11 @@ const bookingSchema = new Schema<IBookingDocument>(
       enum: Object.values(ServiceType),
       required: [true, 'Service type is required'],
     },
+    serviceCategory: {
+      type: String,
+      enum: ['COOK', 'MAID', 'BABYSITTER', 'HOUSEHOLD_TASK', 'PHYSIOTHERAPY', 'OCCUPATIONAL_THERAPY'],
+      index: true,
+    },
     status: {
       type: String,
       enum: Object.values(BookingStatus),
@@ -136,6 +157,13 @@ const bookingSchema = new Schema<IBookingDocument>(
     },
     durationHours: { type: Number, required: true, min: 0.5, max: 24 },
     slotType: { type: String, enum: ['PREDEFINED', 'CUSTOM'], default: 'PREDEFINED', index: true },
+    providerSelectionMode: { type: String, enum: ['SPECIFIC', 'AUTO_MATCH'], default: 'SPECIFIC', index: true },
+    requestStatus: {
+      type: String,
+      enum: ['PENDING_PROVIDER_ACCEPTANCE', 'ACCEPTED', 'DECLINED', 'EXPIRED'],
+      default: 'PENDING_PROVIDER_ACCEPTANCE',
+      index: true,
+    },
     serviceAddress: { type: addressSchema, required: true },
     pricing: { type: bookingPricingSchema, required: true },
     taskName: { type: String, trim: true },
@@ -148,6 +176,19 @@ const bookingSchema = new Schema<IBookingDocument>(
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
     startedAt: { type: Date },
     completedAt: { type: Date },
+    acceptedAt: { type: Date },
+    onTheWayAt: { type: Date },
+    arrivedAt: { type: Date },
+    startOtpHash: { type: String, trim: true },
+    startOtpRaw: { type: String, trim: true },
+    startOtpExpiresAt: { type: Date },
+    startOtpAttempts: { type: Number, default: 0 },
+    otpVerifiedAt: { type: Date },
+    lastProviderLatitude: { type: Number },
+    lastProviderLongitude: { type: Number },
+    lastProviderLocationAt: { type: Date },
+    distanceKm: { type: Number },
+    etaMinutes: { type: Number },
     timeline: [
       {
         status: { type: String, required: true },

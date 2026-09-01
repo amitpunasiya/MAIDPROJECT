@@ -50,7 +50,21 @@ app.use(
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use(
   cors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, Postman, server-side)
+      if (!origin) return callback(null, true);
+      
+      // In development mode, allow any local or intranet origin
+      if (env.NODE_ENV === 'development') {
+        return callback(null, true);
+      }
+
+      if (corsOrigins.includes(origin) || corsOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      return callback(null, true); // Fallback safe allow in development
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],

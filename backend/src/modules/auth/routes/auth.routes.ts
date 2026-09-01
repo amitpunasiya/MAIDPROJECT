@@ -51,5 +51,6 @@ router.post('/verify-email', validate(verifyEmailSchema), authController.verifyE
 router.get('/profile', authenticate, authController.getProfile);
 router.patch('/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
 router.post('/change-password', authenticate, validate(changePasswordSchema), authController.changePassword);
+router.post('/become-provider', authenticate, authController.becomeProvider);
 
 export default router;

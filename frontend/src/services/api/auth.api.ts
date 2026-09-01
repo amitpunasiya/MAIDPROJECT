@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   phone: string;
   role: UserRole;
+  roles?: UserRole[];
   avatar?: string;
   city?: string;
   isActive?: boolean;
@@ -40,8 +41,21 @@ export interface RegisterPayload {
   phone: string;
   password?: string;
   role?: UserRole;
+  roles?: UserRole[];
+  isProvider?: boolean;
+  services?: string[];
+  experienceYears?: number;
+  hourlyRate?: number;
+  bio?: string;
   city?: string;
   address?: string;
+}
+
+export interface BecomeProviderPayload {
+  services: string[];
+  experienceYears?: number;
+  hourlyRate?: number;
+  bio?: string;
 }
 
 export interface SendOtpPayload {
@@ -116,6 +130,14 @@ export const authApi = {
    */
   register(data: RegisterPayload): Promise<ApiResponse<AuthResponseData>> {
     return post<AuthResponseData>('/auth/register', data);
+  },
+
+  /**
+   * Upgrade customer account to provider with selected services
+   * POST /auth/become-provider
+   */
+  becomeProvider(data: BecomeProviderPayload): Promise<ApiResponse<AuthResponseData>> {
+    return post<AuthResponseData>('/auth/become-provider', data);
   },
 
   /**

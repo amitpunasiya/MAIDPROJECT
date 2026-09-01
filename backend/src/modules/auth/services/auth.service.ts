@@ -74,7 +74,7 @@ export class AuthService {
         userId: user._id,
         experienceYears: input.experienceYears ?? 0,
         hourlyRate: input.hourlyRate ?? 100,
-        serviceTypes: input.serviceTypes?.length ? input.serviceTypes : [ServiceType.COOK],
+        serviceTypes: (input.serviceTypes?.length ? input.serviceTypes : [ServiceType.COOK]) as ServiceType[],
         bio: input.bio ?? '',
         skills: [],
         languages: [],
@@ -552,6 +552,80 @@ export class AuthService {
       throw ApiError.internal('Failed to update profile');
     }
     return updated.toJSON();
+  }
+
+  async becomeProvider(
+    userId: string,
+    services: string[],
+    providerDetails?: { experienceYears?: number; bio?: string; hourlyRate?: number },
+    meta?: RequestMeta,
+  ): Promise<AuthResult> {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw ApiError.notFound('User not found');
+    }
+
+    const currentRoles = user.roles && user.roles.length > 0 ? [...user.roles] : [user.role];
+    if (!currentRoles.includes(UserRole.PROVIDER)) {
+      currentRoles.push(UserRole.PROVIDER);
+    }
+
+    const updatedUser = await userRepository.updateById(userId, {
+      roles: currentRoles,
+    });
+
+    if (!updatedUser) {
+      throw ApiError.internal('Failed to update user roles');
+    }
+
+    const selectedServiceTypes = services && services.length > 0 ? services : ['cook'];
+
+    const { Provider } = await import('../../../models/provider.model.js');
+    let provider = await Provider.findOne({ userId: user._id });
+    if (!provider) {
+      provider = await Provider.create({
+        userId: user._id,
+        fullName: user.name,
+        serviceTypes: selectedServiceTypes,
+        providerType: selectedServiceTypes[0] || 'cook',
+        experienceYears: providerDetails?.experienceYears ?? 0,
+        bio: providerDetails?.bio ?? '',
+        pricing: {
+          hourlyPrice: providerDetails?.hourlyRate ?? 100,
+        },
+        services: selectedServiceTypes.map((s: string) => ({
+          serviceName: String(s).toUpperCase(),
+          price: providerDetails?.hourlyRate ?? 100,
+          duration: '1 hour',
+          category: String(s),
+        })),
+        isAvailable: true,
+      });
+    } else {
+      provider.serviceTypes = Array.from(new Set([...(provider.serviceTypes || []), ...selectedServiceTypes]));
+      if (providerDetails?.experienceYears !== undefined) provider.experienceYears = providerDetails.experienceYears;
+      if (providerDetails?.bio !== undefined) provider.bio = providerDetails.bio;
+      if (providerDetails?.hourlyRate !== undefined && provider.pricing) {
+        provider.pricing.hourlyPrice = providerDetails.hourlyRate;
+      }
+      await provider.save();
+    }
+
+    const tokens = await tokenService.createTokenPair({
+      userId: updatedUser._id.toString(),
+      email: updatedUser.email,
+      role: updatedUser.role,
+      roles: updatedUser.roles,
+      userAgent: meta?.userAgent,
+      ipAddress: meta?.ipAddress,
+    });
+
+    return {
+      user: updatedUser,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokenService.getAccessTokenExpiresIn(),
+    };
   }
 
   formatAuthResponse(result: AuthResult) {

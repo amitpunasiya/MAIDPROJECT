@@ -62,6 +62,11 @@ export const adminApi = {
     return res.data;
   },
 
+  permanentlyBlockProvider: async (id: string, reason?: string) => {
+    const res = await api.patch(`/providers/${id}/block`, { reason });
+    return res.data;
+  },
+
   rejectProvider: async (id: string) => {
     const res = await api.patch(`/providers/${id}/reject`);
     return res.data;
@@ -69,6 +74,17 @@ export const adminApi = {
 
   deleteProvider: async (id: string) => {
     const res = await api.delete(`/providers/${id}`);
+    return res.data;
+  },
+
+  // Healthcare & KYC Management
+  getAdminKycDetails: async (providerId: string) => {
+    const res = await api.get(`/providers/admin/kyc/${providerId}`);
+    return res.data;
+  },
+
+  verifyHealthcareKyc: async (providerId: string, action: 'approve' | 'reject' | 'request_resubmission', rejectionReason?: string) => {
+    const res = await api.patch(`/providers/admin/kyc/${providerId}/verify`, { action, rejectionReason });
     return res.data;
   },
 
@@ -316,6 +332,12 @@ export const adminApi = {
 
   createLocation: async (data: Record<string, unknown>) => {
     const res = await api.post('/locations/cities', data);
+    return res.data;
+  },
+
+  // Authentication
+  login: async (credentials: Record<string, unknown>) => {
+    const res = await api.post('/auth/login/admin', credentials);
     return res.data;
   },
 };

@@ -246,6 +246,30 @@ export class AuthController {
     const user = await authService.updateProfile(req.user.id, input);
     return ApiResponse.ok(res, 'Profile updated successfully', { user });
   });
+
+  becomeProvider = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized();
+    }
+    const { services, experienceYears, bio, hourlyRate } = req.body;
+    const meta = getRequestMeta(req);
+    const result = await authService.becomeProvider(
+      req.user.id,
+      services,
+      { experienceYears, bio, hourlyRate },
+      meta,
+    );
+
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    const responseData = authService.formatAuthResponse(result);
+    return ApiResponse.ok(res, 'Successfully upgraded to Provider role', responseData);
+  });
 }
 
 export const authController = new AuthController();

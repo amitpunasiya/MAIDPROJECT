@@ -76,6 +76,12 @@ const bankDetailsSchema = new Schema(
 
 const providerDocsSchema = new Schema(
   {
+    countryCode: { type: String, trim: true, uppercase: true, default: 'IN' },
+    documentType: { type: String, trim: true, default: 'national_id' },
+    documentNumberHash: { type: String, trim: true, default: '', index: true },
+    maskedIdentityNumber: { type: String, trim: true, default: '' },
+    documentFrontDoc: { type: String, trim: true, default: '' },
+    documentBackDoc: { type: String, trim: true, default: '' },
     aadhaarNumber: { type: String, trim: true, default: '' },
     aadhaarDoc: { type: String, trim: true, default: '' },
     panNumber: { type: String, trim: true, default: '' },
@@ -100,7 +106,7 @@ const providerSchema = new Schema<IProviderDocument>(
     },
     providerType: {
       type: String,
-      enum: ['cook', 'maid', 'babysitter', 'eldercare', 'cleaning', 'other'],
+      enum: ['cook', 'maid', 'babysitter', 'eldercare', 'cleaning', 'physiotherapist', 'occupational_therapist', 'child_care_provider', 'adult_care_provider', 'other'],
       default: 'cook',
       index: true,
     },
@@ -118,34 +124,39 @@ const providerSchema = new Schema<IProviderDocument>(
     },
     dob: { type: Date },
     profilePhoto: { type: String, trim: true, default: '' },
+    qualification: { type: String, trim: true, default: '' },
+    specializations: { type: [String], default: [], index: true },
+    homeVisitAvailability: { type: Boolean, default: true },
+    consultationFee: { type: Number, default: 500, min: 0 },
     experienceYears: { type: Number, default: 0, min: 0, max: 60, index: true },
     languages: { type: [String], default: [] },
     skills: { type: [String], default: [], index: true },
     bio: { type: String, trim: true, maxlength: 2000, default: '' },
     aadhaarVerificationStatus: {
       type: String,
-      enum: ['pending', 'verified', 'rejected'],
       default: 'pending',
       index: true,
     },
     policeVerificationStatus: {
       type: String,
-      enum: ['pending', 'verified', 'rejected'],
       default: 'pending',
       index: true,
     },
     verificationStatus: {
       type: String,
-      enum: ['pending', 'verified', 'rejected'],
-      default: 'pending',
+      default: 'PENDING',
       index: true,
     },
     kycStatus: {
       type: String,
-      enum: ['unverified', 'pending', 'approved', 'rejected', 'suspended'],
-      default: 'unverified',
+      enum: ['NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED', 'RESUBMISSION_REQUESTED', 'pending', 'approved', 'unverified'],
+      default: 'NOT_SUBMITTED',
       index: true,
     },
+    kycRejectionReason: { type: String, trim: true, default: '' },
+    blockedAt: { type: Date },
+    blockedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    blockReason: { type: String, trim: true, default: '' },
     bankDetails: { type: bankDetailsSchema, default: () => ({}) },
     isAvailable: { type: Boolean, default: true, index: true },
     isFeatured: { type: Boolean, default: false, index: true },
@@ -169,6 +180,7 @@ const providerSchema = new Schema<IProviderDocument>(
       },
     },
     services: { type: [providerServiceItemSchema], default: [] },
+    serviceTypes: { type: [String], default: ['cook'], index: true },
     schedule: { type: [dayScheduleSchema], default: [] },
     holidaySupport: { type: Boolean, default: false },
     pricing: { type: providerPricingSchema, default: () => ({}) },
@@ -176,14 +188,46 @@ const providerSchema = new Schema<IProviderDocument>(
     gallery: { type: [galleryItemSchema], default: [] },
     ...softDeleteFields,
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: {
+      transform(_doc, ret) {
+        const sanitized = ret as Record<string, any>;
+
+        // Security: Mask Aadhaar and PAN numbers in standard JSON output
+        if (sanitized.documents) {
+          if (sanitized.documents.aadhaarNumber) {
+            const raw = String(sanitized.documents.aadhaarNumber).replace(/\D/g, '');
+            sanitized.documents.maskedAadhaar = raw.length >= 4 ? `XXXX-XXXX-${raw.slice(-4)}` : 'XXXX-XXXX-XXXX';
+            delete sanitized.documents.aadhaarNumber;
+          }
+          if (sanitized.documents.panNumber) {
+            const raw = String(sanitized.documents.panNumber).trim();
+            sanitized.documents.maskedPan = raw.length >= 4 ? `XXXXX${raw.slice(-4).toUpperCase()}` : 'XXXXX0000X';
+            delete sanitized.documents.panNumber;
+          }
+          // Do not expose raw sensitive document files in public/standard provider API queries
+          delete sanitized.documents.aadhaarDoc;
+          delete sanitized.documents.panDoc;
+          delete sanitized.documents.documentFrontDoc;
+          delete sanitized.documents.documentBackDoc;
+        }
+
+        delete sanitized.__v;
+        return sanitized;
+      },
+    },
+  },
 );
 
 // Indexes for fast spatial & multi-attribute querying
 providerSchema.index({ geoPoint: '2dsphere' });
+providerSchema.index({ providerType: 1, kycStatus: 1, isAvailable: 1, isDeleted: 1 });
+providerSchema.index({ specializations: 1 });
+providerSchema.index({ serviceTypes: 1, isAvailable: 1, isDeleted: 1 });
 providerSchema.index({ 'location.city': 1, providerType: 1, isAvailable: 1, isDeleted: 1 });
 providerSchema.index({ 'location.state': 1, isAvailable: 1 });
 providerSchema.index({ averageRating: -1, totalRatings: -1 });
-providerSchema.index({ fullName: 'text', skills: 'text', bio: 'text' });
+providerSchema.index({ fullName: 'text', skills: 'text', bio: 'text', specializations: 'text' });
 
 export const Provider = model<IProviderDocument>('Provider', providerSchema);

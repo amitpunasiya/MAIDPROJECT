@@ -62,6 +62,20 @@ export const SERVICE_CATEGORIES: CategoryOption[] = [
     role: UserRole.MAID,
   },
   {
+    id: 'physiotherapist',
+    title: 'Physiotherapist',
+    subtitle: 'Home Visit Therapy',
+    icon: <ElderlyIcon sx={{ fontSize: 24, color: '#0284C7' }} />,
+    role: UserRole.PHYSIOTHERAPIST,
+  },
+  {
+    id: 'occupational_therapist',
+    title: 'Occupational Therapist',
+    subtitle: 'ADL & Pediatric OT',
+    icon: <ElderlyIcon sx={{ fontSize: 24, color: '#0D9488' }} />,
+    role: UserRole.OCCUPATIONAL_THERAPIST,
+  },
+  {
     id: 'baby_sitter',
     title: 'Baby Sitter',
     subtitle: 'Child Care & Nanny',
@@ -126,7 +140,7 @@ export const Register: React.FC = () => {
 
   // Account Type Choice: 'customer' vs 'provider'
   const [accountType, setAccountType] = useState<'customer' | 'provider'>('customer');
-  const [selectedCategory, setSelectedCategory] = useState<string>('cook');
+  const [selectedServices, setSelectedServices] = useState<string[]>(['cook']);
 
   const {
     control,
@@ -151,16 +165,17 @@ export const Register: React.FC = () => {
     if (type === 'customer') {
       setValue('userType', UserRole.CUSTOMER, { shouldValidate: true });
     } else {
-      const catObj = SERVICE_CATEGORIES.find((c) => c.id === selectedCategory) || SERVICE_CATEGORIES[0];
-      setValue('userType', catObj.role, { shouldValidate: true });
+      setValue('userType', UserRole.PROVIDER, { shouldValidate: true });
     }
   };
 
-  const handleCategorySelect = (catId: string) => {
-    setSelectedCategory(catId);
-    const catObj = SERVICE_CATEGORIES.find((c) => c.id === catId);
-    if (catObj) {
-      setValue('userType', catObj.role, { shouldValidate: true });
+  const handleToggleService = (catId: string) => {
+    if (selectedServices.includes(catId)) {
+      if (selectedServices.length > 1) {
+        setSelectedServices(selectedServices.filter((id) => id !== catId));
+      }
+    } else {
+      setSelectedServices([...selectedServices, catId]);
     }
   };
 
@@ -174,8 +189,10 @@ export const Register: React.FC = () => {
         phone: data.mobile,
         email: data.email,
         password: data.password,
-        role: accountType === 'customer' ? UserRole.CUSTOMER : data.userType,
-        providerType: accountType === 'provider' ? selectedCategory : undefined,
+        role: accountType === 'customer' ? UserRole.CUSTOMER : UserRole.PROVIDER,
+        isProvider: accountType === 'provider',
+        services: accountType === 'provider' ? selectedServices : [],
+        serviceTypes: accountType === 'provider' ? selectedServices : [],
       } as any);
 
       // Send OTP
@@ -190,8 +207,8 @@ export const Register: React.FC = () => {
           mobile: data.mobile,
           email: data.email,
           fullName: data.fullName,
-          userType: data.userType,
-          providerCategory: accountType === 'provider' ? selectedCategory : undefined,
+          userType: accountType === 'provider' ? UserRole.PROVIDER : UserRole.CUSTOMER,
+          services: accountType === 'provider' ? selectedServices : undefined,
           from: 'register',
         },
       });
@@ -275,23 +292,23 @@ export const Register: React.FC = () => {
           </Grid2>
         </Box>
 
-        {/* Category Picker when Service Provider is selected */}
+        {/* Multi-Service Picker when Service Provider is selected */}
         {accountType === 'provider' && (
           <Box sx={{ mb: 2.5, p: 2, bgcolor: '#F8FAFC', borderRadius: 3, border: '1px solid #E2E8F0' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
               <Typography variant="caption" fontWeight={800} color="primary.main">
-                SELECT YOUR SERVICE CATEGORY
+                WHAT SERVICES DO YOU PROVIDE? (SELECT ALL THAT APPLY)
               </Typography>
-              <Chip label="Required" size="small" color="primary" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800 }} />
+              <Chip label={`${selectedServices.length} Selected`} size="small" color="primary" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800 }} />
             </Box>
 
             <Grid2 container spacing={1}>
               {SERVICE_CATEGORIES.map((cat) => {
-                const isSelected = selectedCategory === cat.id;
+                const isSelected = selectedServices.includes(cat.id);
                 return (
                   <Grid2 key={cat.id} size={{ xs: 6, sm: 4 }}>
                     <Paper
-                      onClick={() => handleCategorySelect(cat.id)}
+                      onClick={() => handleToggleService(cat.id)}
                       elevation={0}
                       sx={{
                         p: 1.2,
@@ -305,10 +322,14 @@ export const Register: React.FC = () => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         textAlign: 'center',
+                        position: 'relative',
                         transition: 'all 0.15s ease',
                         '&:hover': { borderColor: 'primary.main' },
                       }}
                     >
+                      {isSelected && (
+                        <CheckCircleIcon color="primary" sx={{ position: 'absolute', top: 4, right: 4, fontSize: 16 }} />
+                      )}
                       <Box sx={{ mb: 0.5 }}>{cat.icon}</Box>
                       <Typography variant="caption" fontWeight={800} display="block" color={isSelected ? 'primary.main' : 'text.primary'}>
                         {cat.title}
@@ -472,7 +493,9 @@ export const Register: React.FC = () => {
           size="large"
           sx={{ py: 1.5, fontSize: '1rem', fontWeight: 700, mb: 2 }}
         >
-          {accountType === 'customer' ? 'Create Customer Account' : `Register as ${SERVICE_CATEGORIES.find((c) => c.id === selectedCategory)?.title}`}
+          {accountType === 'customer'
+            ? 'Create Customer Account'
+            : `Register as Service Provider (${selectedServices.length} Selected)`}
         </Button>
 
         {/* Link to Login */}

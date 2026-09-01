@@ -105,6 +105,7 @@ export const TaskBookingDialog: React.FC<TaskBookingDialogProps> = ({
   // Worker Matching & Slot Selection State
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(initialWorkerId || null);
   const [selectedWorkerName, setSelectedWorkerName] = useState<string>(initialWorkerName || 'Auto-Matched Best Helper');
+  const [providerSelectionMode, setProviderSelectionMode] = useState<'SPECIFIC' | 'AUTO_MATCH'>('SPECIFIC');
   const [matchedWorkers, setMatchedWorkers] = useState<any[]>([]);
   const [workersLoading, setWorkersLoading] = useState(false);
 
@@ -361,6 +362,7 @@ export const TaskBookingDialog: React.FC<TaskBookingDialogProps> = ({
         endTime,
         durationHours,
         slotType,
+        providerSelectionMode,
         serviceAddress: {
           street: address || 'Main Service Street',
           city: city || 'Bengaluru',
@@ -810,39 +812,63 @@ export const TaskBookingDialog: React.FC<TaskBookingDialogProps> = ({
             {/* STEP 2: AVAILABLE WORKERS & SMART MATCHING */}
             {activeStep === 2 && (
               <Box>
-                <Paper
-                  elevation={0}
-                  onClick={() => {
-                    if (matchedWorkers.length > 0) {
-                      setSelectedWorkerId(matchedWorkers[0].id || matchedWorkers[0]._id);
-                      setSelectedWorkerName(`Auto-Matched (${matchedWorkers[0].name || matchedWorkers[0].fullName})`);
-                    }
-                  }}
-                  sx={{
-                    p: 2,
-                    mb: 3,
-                    borderRadius: 3,
-                    bgcolor: '#EFF6FF',
-                    border: selectedWorkerName.includes('Auto-Matched') ? '2px solid #2563EB' : '1px solid #BFDBFE',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={900} color="primary.main">
-                      ✨ Find the best available worker for me
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Smart matching ranks by skills, rating, verification, and location proximity.
-                    </Typography>
-                  </Box>
-                  <CheckCircleIcon color={selectedWorkerName.includes('Auto-Matched') ? 'primary' : 'disabled'} />
-                </Paper>
+                <Typography variant="subtitle2" fontWeight={800} color="text.secondary" gutterBottom>
+                  WHO SHOULD COMPLETE THIS TASK?
+                </Typography>
+                <Grid2 container spacing={2} sx={{ mb: 3 }}>
+                  <Grid2 size={{ xs: 12, sm: 6 }}>
+                    <Paper
+                      elevation={0}
+                      onClick={() => {
+                        setProviderSelectionMode('AUTO_MATCH');
+                        if (matchedWorkers.length > 0) {
+                          setSelectedWorkerId(matchedWorkers[0].id || matchedWorkers[0]._id);
+                          setSelectedWorkerName(`Auto-Matched (${matchedWorkers[0].name || matchedWorkers[0].fullName})`);
+                        }
+                      }}
+                      sx={{
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: providerSelectionMode === 'AUTO_MATCH' ? '#EFF6FF' : '#FFFFFF',
+                        border: providerSelectionMode === 'AUTO_MATCH' ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                        cursor: 'pointer',
+                        height: '100%',
+                      }}
+                    >
+                      <Typography variant="subtitle2" fontWeight={900} color="primary.main">
+                        ⚡ Choice B: Find Best Provider For Me
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        We'll notify suitable verified providers within 5 KM.
+                      </Typography>
+                    </Paper>
+                  </Grid2>
+
+                  <Grid2 size={{ xs: 12, sm: 6 }}>
+                    <Paper
+                      elevation={0}
+                      onClick={() => setProviderSelectionMode('SPECIFIC')}
+                      sx={{
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: providerSelectionMode === 'SPECIFIC' ? '#EFF6FF' : '#FFFFFF',
+                        border: providerSelectionMode === 'SPECIFIC' ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                        cursor: 'pointer',
+                        height: '100%',
+                      }}
+                    >
+                      <Typography variant="subtitle2" fontWeight={900} color="primary.main">
+                        👤 Choice A: Choose a Specific Provider
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        Browse list of approved nearby helpers and pick your favorite.
+                      </Typography>
+                    </Paper>
+                  </Grid2>
+                </Grid2>
 
                 <Typography variant="subtitle2" fontWeight={800} color="text.secondary" gutterBottom>
-                  ELIGIBLE AVAILABLE WORKERS ({matchedWorkers.length})
+                  ELIGIBLE NEARBY HELPERS (WITHIN 5 KM) ({matchedWorkers.length})
                 </Typography>
 
                 {workersLoading ? (

@@ -302,6 +302,36 @@ export class BookingController {
     const result = await bookingService.cancelRecurringBooking(id, req.user.id);
     return ApiResponse.ok(res, 'Recurring booking cancelled', result);
   });
+
+  markArrived = asyncHandler(async (req: Request, res: Response) => {
+    const providerId = req.user ? req.user.id : 'provider';
+    const id = req.params.id as string;
+    const booking = await bookingService.markArrived(providerId, id);
+    return ApiResponse.ok(res, 'Marked arrival successfully. Waiting for customer OTP.', { booking });
+  });
+
+  verifyStartOtp = asyncHandler(async (req: Request, res: Response) => {
+    const providerId = req.user ? req.user.id : 'provider';
+    const id = req.params.id as string;
+    const { otp } = req.body;
+    const booking = await bookingService.verifyStartOtp(providerId, id, otp);
+    return ApiResponse.ok(res, 'OTP verified successfully. Job started.', { booking });
+  });
+
+  updateLocation = asyncHandler(async (req: Request, res: Response) => {
+    const providerId = req.user ? req.user.id : 'provider';
+    const id = req.params.id as string;
+    const { latitude, longitude } = req.body;
+    const booking = await bookingService.updateProviderLocation(providerId, id, Number(latitude), Number(longitude));
+    return ApiResponse.ok(res, 'Provider location and ETA updated successfully', { booking });
+  });
+
+  getStartOtp = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user ? req.user.id : 'admin';
+    const id = req.params.id as string;
+    const otpData = await bookingService.getStartOtpForCustomer(id, userId);
+    return ApiResponse.ok(res, 'Start OTP retrieved successfully', otpData);
+  });
 }
 
 export const bookingController = new BookingController();
