@@ -50,6 +50,7 @@ export const connectDatabase = async (): Promise<void> => {
 
     if (env.NODE_ENV === 'development') {
       try {
+        await mongoose.disconnect().catch(() => {});
         const path = await import('path');
         const fs = await import('fs');
         const tempDbPath = path.resolve(process.cwd(), '.mongo_temp', `run_${Date.now()}`);

@@ -17,12 +17,14 @@ export const ThemeToggle: React.FC = () => {
     else dispatch(setThemeMode('light'));
   };
 
+  const currentThemeMode = (themeMode && typeof themeMode === 'string') ? themeMode : 'light';
+
   return (
-    <Tooltip title={`Current Mode: ${themeMode.toUpperCase()} (Click to toggle)`}>
+    <Tooltip title={`Current Mode: ${currentThemeMode.toUpperCase()} (Click to toggle)`}>
       <IconButton onClick={cycleTheme} color="inherit" sx={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: '10px' }}>
-        {themeMode === 'light' && <LightModeIcon color="warning" fontSize="small" />}
-        {themeMode === 'dark' && <DarkModeIcon color="primary" fontSize="small" />}
-        {themeMode === 'system' && <SettingsBrightnessIcon fontSize="small" />}
+        {currentThemeMode === 'light' && <LightModeIcon color="warning" fontSize="small" />}
+        {currentThemeMode === 'dark' && <DarkModeIcon color="primary" fontSize="small" />}
+        {currentThemeMode === 'system' && <SettingsBrightnessIcon fontSize="small" />}
       </IconButton>
     </Tooltip>
   );

@@ -1,11 +1,12 @@
 import { createTheme, responsiveFontSizes, Theme } from '@mui/material/styles';
 
-export const getAppTheme = (mode: 'light' | 'dark'): Theme => {
+export const getAppTheme = (mode: 'light' | 'dark' | string): Theme => {
   const isDark = mode === 'dark';
+  const validMode: 'light' | 'dark' = isDark ? 'dark' : 'light';
 
   let customTheme = createTheme({
     palette: {
-      mode,
+      mode: validMode,
       primary: {
         main: '#2563EB', // Vibrant Royal Indigo-Blue
         light: '#60A5FA',

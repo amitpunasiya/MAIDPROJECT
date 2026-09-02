@@ -17,24 +17,26 @@ import {
 } from './components';
 
 const AppContent: React.FC = () => {
-  const themeMode = useAppSelector((state) => state.ui.themeMode);
+  const themeMode = useAppSelector((state) => state.ui?.themeMode || 'light');
   const [systemPrefersDark, setSystemPrefersDark] = React.useState<boolean>(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-color-scheme: dark)')?.matches)
   );
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !window.matchMedia) return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
   }, []);
 
   const activeMode = useMemo(() => {
     if (themeMode === 'system') {
       return systemPrefersDark ? 'dark' : 'light';
     }
-    return themeMode;
+    return themeMode === 'dark' ? 'dark' : 'light';
   }, [themeMode, systemPrefersDark]);
 
   const activeTheme = useMemo(() => getAppTheme(activeMode), [activeMode]);
@@ -45,9 +47,7 @@ const AppContent: React.FC = () => {
       <Seo />
       <OfflineBanner />
       <div id="recaptcha-container"></div>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <AppRoutes />
       <GlobalSnackbar />
       <GlobalModal />
       <BackToTop />
@@ -60,7 +60,9 @@ export const App: React.FC = () => {
   return (
     <Provider store={store}>
       <ErrorBoundary>
-        <AppContent />
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
       </ErrorBoundary>
     </Provider>
   );
